@@ -428,14 +428,32 @@ async function getQuartermasterReportLocal(homeTeam, awayTeam, index, prediction
             reportSection.innerHTML = `<div class="flex items-center text-sm text-gray-500"><dotlottie-wc src="https://lottie.host/19109b73-f99a-4a89-a48c-d5b90bf22b22/tlVX1kmiPt.lottie" background="transparent" speed="1" style="width: 40px; height: 40px;" loop autoplay></dotlottie-wc><p class="ml-2">The Quartermaster is gathering intel...</p></div>`;
         }
         
+        // This now returns an object like { tacticalBriefing: "...", odds: {...} }
         const report = await getQuartermasterReport(homeTeam, awayTeam, apiKey);
-        console.log("Quartermaster Raw Data Received:", report);
+        console.log("Quartermaster Data Received:", report);
 
-        await updatePrediction(predictionId, { 
-            quartermasterReport: report
-        });
+        // Prepare the data to be saved
+        const updates = {
+            quartermasterReport: {
+                tacticalBriefing: report.tacticalBriefing // Save just the text part here
+            }
+        };
+
+        // If we got odds, update the main fixture object as well
+        if (report.odds) {
+            const currentPrediction = unlockedPredictions.find(p => p.id == predictionId);
+            if (currentPrediction) {
+                updates.fixture = {
+                    ...currentPrediction.fixture,
+                    HomeWinOdds: report.odds.homeWin || 'N/A',
+                    DrawOdds: report.odds.draw || 'N/A',
+                    AwayWinOdds: report.odds.awayWin || 'N/A'
+                };
+            }
+        }
         
-        await loadPredictions();
+        await updatePrediction(predictionId, updates);
+        await loadPredictions(); // This will refresh the UI with the new odds
     } catch(error) { 
         console.error("Quartermaster Error:", error); 
         const reportSection = safeGetElement(`quartermaster-report-section-${index}`);
