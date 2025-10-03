@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Captain Turfbeard's football analysis</title>
+    <title>Captain Turfbeard's Football Analysis</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -23,21 +23,32 @@
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://unpkg.com/@lottiefiles/dotlottie-wc@0.6.2/dist/dotlottie-wc.js" type="module"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="manifest" href="data:application/json;base64,ew0KICAic2hvcnRfbmFtZSI6ICJGb290YmFsbFByZWRpY3RvciIsDQogICJuYW1lIjogIk9mZmxpbmUgRm9vdGJhbGwgUHJlZGljdG9yIiwNCiAgImljb25zIjogWw0KICAgIHsNCiAgICAgICJzcmMiOiAiaWNvbnMvaWNvbi0xOTIucG5nIiwNCiAgICAgICJ0eXBlIjogImltYWdlL3BuZyIsDQogICAgICAic2l6ZXMiOiAiMTkyxDE5MiINCiAgICB9LA0KICAgIHsNCiAgICAgICJzcmMiOiAiaWNvbnMvaWNvbi01MTIucG5nIiwNCiAgICAgICJ0eXBlIjogImltYWdlL3BuZyIsDQogICAgICAic2l6ZXMiOiAiNTEyeDUxMiINCiAgICB9DQogIF0sDQogICJzdGFydF91cmwiOiAiLiIsDQogICJkaXNwbGF5IjogInNtYW5kYWxvbmUiLA0KICAidGhlbWVfY29sb3IiOiAiIzAwMDAwMCIsDQogICJiYWNrZЗJvdW5kX2NvbG9yIjogIiNmZmZmZmYiDQp9">
 
     <style>
-        /* Original styles restored for look and feel */
+        .prediction-text { font-size: 14px !important; line-height: 1.5; color: #1f2937 !important; }
+        .probability-text { font-size: 16px !important; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.3); }
+        .small-text { color: #374151 !important; font-size: 13px !important; }
+        .parchment { background-color: #fefcf7 !important; }
+        .text-gray-600 { color: #4b5563 !important; }
+        .text-gray-700 { color: #374151 !important; }
+        .text-gray-800 { color: #1f2937 !important; }
+        .bg-blue-600 { background-color: #1d4ed8 !important; }
+        .bg-red-600 { background-color: #dc2626 !important; }
+        .bg-gray-500 { background-color: #6b7280 !important; }
+        
         body {
             background-color: #0a2d4d;
             background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><filter id="f" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="3" seed="1" result="noise"/><feDiffuseLighting in="noise" lighting-color="%230d3a61" surfaceScale="2"><feDistantLight azimuth="45" elevation="60"/></feDiffuseLighting></filter><rect width="100%" height="100%" filter="url(%23f)"/></svg>');
             background-attachment: fixed;
         }
+        
         .parchment {
             background-color: #fdf5e6;
             border: 10px solid #d2b48c;
             box-shadow: inset 0 0 8px rgba(139, 69, 19, 0.2);
             background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><filter id="f1" x="0" y="0"><feTurbulence type="fractalNoise" baseFrequency="0.2" numOctaves="5" seed="10"/></filter><rect width="100%" height="100%" filter="url(%23f1)" opacity="0.05"/></svg>');
         }
+        
         .svg-button {
             transition: transform 0.2s ease-in-out, filter 0.2s ease-in-out;
             filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.5));
@@ -49,21 +60,38 @@
             filter: drop-shadow(3px 3px 4px rgba(0,0,0,0.6)) brightness(1.1);
             cursor: pointer;
         }
-        .svg-button:disabled, .svg-button-disabled {
+        .svg-button:disabled {
             filter: grayscale(80%) drop-shadow(1px 1px 1px rgba(0,0,0,0.3));
             cursor: not-allowed; pointer-events: none;
         }
+        
+        .modal-overlay { transition: opacity 0.3s ease; }
+        .modal-content { transition: transform 0.3s ease; }
         .hidden { display: none; }
-        /* Force all text elements inside parchment content dark for readability */
-        #unlocked-predictions-container .p-4 *,
-        #log-book-section th, #log-book-section td,
-        #analysis-modal-content * {
+        [id*="details"] { transition: opacity 0.3s ease-in-out; }
+        button[class*="toggle"]:hover { text-decoration: underline; transform: translateY(-1px); }
+        
+        #unlocked-predictions-container .p-4 p,
+        #unlocked-predictions-container .p-4 h4,
+        #unlocked-predictions-container .p-4 h5,
+        #unlocked-predictions-container .p-4 span,
+        #unlocked-predictions-container .p-4 li,
+        #unlocked-predictions-container .p-4 div,
+        #analysis-modal-content p,
+        #analysis-modal-content h4,
+        #analysis-modal-content h5,
+        #analysis-modal-content span,
+        #analysis-modal-content li,
+        #analysis-modal-content div {
             color: #1f2937 !important;
         }
-        /* Re-apply thematic color for links/buttons that were turned black */
+
         #unlocked-predictions-container button[class*="toggle"],
-        #log-book-section .view-analysis-btn,
-        #analysis-modal-content button[class*="toggle"] {
+        #unlocked-predictions-container .font-bold.text-blue-600,
+        #unlocked-predictions-container .font-bold.text-red-600,
+        #analysis-modal-content button[class*="toggle"],
+        #analysis-modal-content .font-bold.text-blue-600,
+        #analysis-modal-content .font-bold.text-red-600 {
             color: #92400e !important;
         }
     </style>
@@ -71,57 +99,44 @@
 <body class="font-english antialiased text-gray-200">
     <div id="root" class="container mx-auto p-4 max-w-3xl">
         <header class="parchment rounded-lg shadow-md p-6 mb-6">
-            <div id="auth-status" class="text-right text-gray-800 -mt-2 mb-4 flex justify-end items-center">
-                 <div id="user-info" class="flex text-sm items-center">
-                     <button id="open-helm-btn" class="font-bold bg-blue-800 text-white py-1 px-3 rounded-md hover:bg-blue-900 text-xs mr-4">
-                        Kraken's Helm
-                     </button>
-                     <button id="log-book-btn" class="font-bold bg-amber-800 text-white py-1 px-3 rounded-md hover:bg-amber-900 text-xs mr-4">
-                         Captain's Log
-                     </button>
-                 </div>
+            <div class="text-right mb-4 flex justify-end items-center gap-2">
+                <button id="open-api-key-btn" class="bg-blue-800 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-900 text-sm">⚙️ Settings</button>
+                <button id="log-book-btn" class="bg-amber-800 text-white font-bold py-2 px-4 rounded-md hover:bg-amber-900 text-sm">📖 Captain's Log</button>
             </div>
 
-            <h1 class="text-5xl font-pirata text-gray-900 text-center">Captain Turfbeard's Local Edition</h1>
-            <p class="text-gray-600 mt-2 text-center">This app runs entirely on your machine. Your data and API key are stored locally in your browser and never leave your computer.</p>
+            <h1 class="text-5xl font-pirata text-gray-900 text-center">Captain Turfbeard's Kraken-powered Football Analysis</h1>
+            <img src="https://raw.githubusercontent.com/foot-predictor-3000/Pirate_test/135608deabea9dd041654ee3a556cde4db616348/1757260212793.jpg" alt="A detailed cartoon of a pirate captain and a kraken looking at a football tactics board." class="my-4 mx-auto rounded-lg shadow-lg w-full max-w-md">
+            <p class="text-gray-600 mt-2 text-center sm:text-left"><strong>How does it work?</strong><br>Train the Kraken's 9 brains on past results, send the Quartermaster on a scouting mission to gather the latest tavern gossip, then get the Captain's final orders!</p>
+            <img src="https://raw.githubusercontent.com/foot-predictor-3000/ahoymateys/refs/heads/main/Gemini_Generated_Image_b5oxfpb5oxfpb5ox.png" alt="comic strip of process" class="my-4 mx-auto rounded-lg shadow-lg w-full max-w-md">
+            <p class="text-gray-600 mt-2 text-center sm:text-left">This be for entertainment and pirate bragging rights only, savvy? No wagering yer pieces of eight based on these whispers!</p>
         </header>
 
         <main>
-            <!-- Ship's Setup -->
             <div class="parchment rounded-lg shadow-md p-6 mb-6">
-                <h2 class="text-3xl font-pirata mb-4 text-gray-900">Ship's Setup</h2>
-                 <div class="space-y-4">
-                    <div>
-                        <label for="api-key-input" class="block text-sm font-medium text-gray-700 mb-1">Your Google Gemini API Key</label>
-                        <div class="flex gap-2">
-                            <input type="password" id="api-key-input" class="w-full p-2 border border-gray-300 rounded-md shadow-sm text-gray-900" placeholder="Paste your API key here">
-                            <button id="save-api-key-btn" class="bg-green-700 hover:bg-green-800 text-white font-bold py-2 px-4 rounded-md">Save</button>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-dashed border-gray-400">
-                        <button id="fetch-results-btn" class="bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded-md text-sm">Fetch Match Results</button>
-                        <button id="export-data-btn" class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-md text-sm">Export Data</button>
-                        <button id="import-data-btn" class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-md text-sm">Import Data</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="parchment rounded-lg shadow-md p-6 mb-6">
-                <h2 class="text-3xl font-pirata mb-2 text-gray-900">Step 1: Load the coffers</h2>
+                <h2 class="text-3xl font-pirata mb-2 text-gray-900">Step 1: Load the Coffers</h2>
                 <div class="flex flex-col sm:flex-row gap-4">
                     <div class="flex-grow">
                         <label for="league-select" class="block text-sm font-medium text-gray-700 mb-1">Which sea are we headed to, captain?</label>
-                        <select id="league-select" class="w-full p-2 border border-gray-300 rounded-md shadow-sm text-gray-900">
+                        <select id="league-select" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-gray-900">
                             <option value="E0">Premier League</option>
                             <option value="E1">English Championship</option>
+                            <option value="E2">English League 1</option>
+                            <option value="E3">English League 2</option>
                             <option value="SP1">Spanish La Liga</option>
                             <option value="D1">German Bundesliga</option>
+                            <option value="D2">German Bundesliga 2</option>
                             <option value="I1">Italian Serie A</option>
                             <option value="F1">French Ligue 1</option>
+                            <option value="N1">Dutch Eredivisie</option>
                         </select>
                     </div>
                     <button id="fetch-data-btn" class="svg-button self-end">
-                        <svg width="280" height="50" viewBox="0 0 280 50"><defs><filter id="woodTexturePlunder"><feTurbulence type="fractalNoise" baseFrequency="0.02 0.2" numOctaves="3" result="noise"/><feDiffuseLighting in="noise" lighting-color="#a07a5f" surfaceScale="2"><feDistantLight azimuth="45" elevation="60"/></feDiffuseLighting><feComposite operator="in" in2="SourceGraphic" result="textured"/></filter></defs><path d="M2,5 Q0,25 2,45 L278,48 Q280,25 278,2 Z" fill="#D2691E" stroke="#5a2d0c" stroke-width="2"/><path d="M2,5 Q0,25 2,45 L278,48 Q280,25 278,2 Z" fill="#D2691E" filter="url(#woodTexturePlunder)" opacity="0.4"/><text x="150" y="33" font-family="Pirata One, cursive" font-size="24" fill="white" text-anchor="middle">Plunder The Depths</text></svg>
+                        <svg width="280" height="50" viewBox="0 0 280 50" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <filter id="woodTexturePlunder"><feTurbulence type="fractalNoise" baseFrequency="0.02 0.2" numOctaves="3" result="noise"/><feDiffuseLighting in="noise" lighting-color="#a07a5f" surfaceScale="2"><feDistantLight azimuth="45" elevation="60"/></feDiffuseLighting><feComposite operator="in" in2="SourceGraphic" result="textured"/></filter>
+                            </defs>
+                            <path d="M2,5 Q0,25 2,45 L278,48 Q280,25 278,2 Z" fill="#D2691E" stroke="#5a2d0c" stroke-width="2"/><path d="M2,5 Q0,25 2,45 L278,48 Q280,25 278,2 Z" fill="#D2691E" filter="url(#woodTexturePlunder)" opacity="0.4"/><g transform="translate(15, 15) scale(1.1)" fill="white"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" /></g><text x="150" y="33" font-family="Pirata One, cursive" font-size="24" fill="white" text-anchor="middle" style="paint-order: stroke; stroke: #000; stroke-width: 1px;">Plunder The Depths</text>
+                        </svg>
                     </button>
                 </div>
                 <div id="status-area" class="mt-4 text-sm text-gray-600 h-5"></div>
@@ -131,24 +146,34 @@
                 <h2 class="text-3xl font-pirata mb-4 text-gray-900">Step 2: Awaken the Kraken</h2>
                 <div id="training-section" class="text-center">
                     <button id="train-models-btn" class="svg-button mx-auto">
-                        <svg width="220" height="50" viewBox="0 0 220 50"><defs><filter id="woodTextureAwaken"><feTurbulence type="fractalNoise" baseFrequency="0.02 0.2" numOctaves="3" result="noise"/><feDiffuseLighting in="noise" lighting-color="#a07a5f" surfaceScale="2"><feDistantLight azimuth="45" elevation="60"/></feDiffuseLighting><feComposite operator="in" in2="SourceGraphic" result="textured"/></filter></defs><path d="M2,5 Q0,25 2,45 L218,48 Q220,25 218,2 Z" fill="#D2691E" stroke="#5a2d0c" stroke-width="2"/><path d="M2,5 Q0,25 2,45 L218,48 Q220,25 218,2 Z" fill="#D2691E" filter="url(#woodTextureAwaken)" opacity="0.4"/><text x="110" y="33" font-family="Pirata One" font-size="24" fill="white" text-anchor="middle">Awaken the Kraken</text></svg>
+                        <svg width="220" height="50" viewBox="0 0 220 50" xmlns="http://www.w3.org/2000/svg">
+                            <defs><filter id="woodTextureAwaken"><feTurbulence type="fractalNoise" baseFrequency="0.02 0.2" numOctaves="3" result="noise"/><feDiffuseLighting in="noise" lighting-color="#a07a5f" surfaceScale="2"><feDistantLight azimuth="45" elevation="60"/></feDiffuseLighting><feComposite operator="in" in2="SourceGraphic" result="textured"/></filter></defs>
+                            <path d="M2,5 Q0,25 2,45 L218,48 Q220,25 218,2 Z" fill="#D2691E" stroke="#5a2d0c" stroke-width="2"/><path d="M2,5 Q0,25 2,45 L218,48 Q220,25 218,2 Z" fill="#D2691E" filter="url(#woodTextureAwaken)" opacity="0.4"/><text x="110" y="33" font-family="Pirata One, cursive" font-size="24" fill="white" text-anchor="middle" style="paint-order: stroke; stroke: #000; stroke-width: 1px;">Awaken the Kraken</text>
+                        </svg>
                     </button>
+                    
                     <button id="retrain-kraken-btn" class="hidden svg-button mx-auto">
-                         <svg width="220" height="50" viewBox="0 0 220 50"><path d="M2,5 Q0,25 2,45 L218,48 Q220,25 218,2 Z" fill="#D2691E" stroke="#5a2d0c" stroke-width="2"/><text x="110" y="33" font-family="Pirata One" font-size="24" fill="white" text-anchor="middle">Re-train Kraken</text></svg>
+                        <svg width="220" height="50" viewBox="0 0 220 50"><text x="110" y="33" font-family="Pirata One, cursive" font-size="24" fill="white" text-anchor="middle">Re-train Kraken</text></svg>
                     </button>
                     <div id="training-status-area" class="mt-2 text-sm text-gray-600 text-center"></div>
                 </div>
             </div>
 
             <div id="prediction-area" class="parchment rounded-lg shadow-md p-6 mb-6">
-                <h2 class="text-3xl font-pirata mb-4 text-gray-900">Step 3: Gaze into the abyss</h2>
+                <h2 class="text-3xl font-pirata mb-4 text-gray-900">Step 3: Gaze into the Abyss</h2>
+                
                 <button id="find-fixtures-btn" class="svg-button w-full">
-                    <svg width="100%" height="50" viewBox="0 0 300 50"><defs><filter id="woodTextureFixtures"><feTurbulence type="fractalNoise" baseFrequency="0.02 0.2" numOctaves="3" result="noise"/><feDiffuseLighting in="noise" lighting-color="#a07a5f" surfaceScale="2"><feDistantLight azimuth="45" elevation="60"/></feDiffuseLighting><feComposite operator="in" in2="SourceGraphic" result="textured"/></filter></defs><path d="M2,5 Q0,25 2,45 L298,48 Q300,25 298,2 Z" fill="#D2691E" stroke="#5a2d0c" stroke-width="2"/><path d="M2,5 Q0,25 2,45 L298,48 Q300,25 298,2 Z" fill="#D2691E" filter="url(#woodTextureFixtures)" opacity="0.4"/><text x="165" y="33" font-family="Pirata One" font-size="24" fill="white" text-anchor="middle">Spot Upcoming Skirmishes</text></svg>
+                    <svg width="100%" height="50" viewBox="0 0 300 50" xmlns="http://www.w3.org/2000/svg">
+                        <defs><filter id="woodTextureFixtures"><feTurbulence type="fractalNoise" baseFrequency="0.02 0.2" numOctaves="3" result="noise"/><feDiffuseLighting in="noise" lighting-color="#a07a5f" surfaceScale="2"><feDistantLight azimuth="45" elevation="60"/></feDiffuseLighting><feComposite operator="in" in2="SourceGraphic" result="textured"/></filter></defs>
+                        <path d="M2,5 Q0,25 2,45 L298,48 Q300,25 298,2 Z" fill="#D2691E" stroke="#5a2d0c" stroke-width="2"/><path d="M2,5 Q0,25 2,45 L298,48 Q300,25 298,2 Z" fill="#D2691E" filter="url(#woodTextureFixtures)" opacity="0.4"/><g transform="translate(25, 15) scale(1.1)" fill="white"><path d="M9 9a2 2 0 114 0 2 2 0 01-4 0z" /><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm0 2a10 10 0 100-20 10 10 0 000 20z" clip-rule="evenodd" /></g><text x="165" y="33" font-family="Pirata One, cursive" font-size="24" fill="white" text-anchor="middle" style="paint-order: stroke; stroke: #000; stroke-width: 1px;">Spot Upcoming Skirmishes</text>
+                    </svg>
                 </button>
                 <div class="mt-2 text-right text-sm">
-                  <input type="checkbox" id="test-mode-checkbox" class="mr-1 align-middle"><label for="test-mode-checkbox" class="text-gray-700 cursor-pointer align-middle">Test Mode (Find Past Games)</label>
+                  <input type="checkbox" id="test-mode-checkbox" class="mr-1 align-middle">
+                  <label for="test-mode-checkbox" class="text-gray-700 cursor-pointer align-middle">Test Mode (Find Past Games)</label>
                 </div>
                 <div id="gemini-status-area" class="mt-4 text-sm text-gray-600 min-h-[20px]"></div>
+
                 <div id="fixtures-selection-area" class="hidden mt-4 space-y-6">
                     <div>
                         <h3 class="text-2xl font-pirata text-gray-800 border-b-2 border-dashed border-gray-400 pb-1 mb-3">Available Skirmishes</h3>
@@ -157,63 +182,229 @@
                 </div>
             </div>
 
-            <div id="unlocked-predictions-section" class="parchment rounded-lg shadow-md p-6 mb-6">
+            <div id="unlocked-predictions-section" class="parchment rounded-lg shadow-md p-6 mb-6 hidden">
                  <h2 class="text-3xl font-pirata mb-1 text-gray-900">Step 4: The Captain's Desk</h2>
                  <p class="text-gray-600 mb-4 -mt-1">Here are your unlocked skirmishes. Click 'Forecast' to begin your analysis.</p>
                  <div id="unlocked-predictions-container" class="space-y-4"></div>
             </div>
+
+            <!-- New: Data Management Section -->
+            <div class="parchment rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-3xl font-pirata mb-4 text-gray-900">Ship's Maintenance</h2>
+                <div class="space-y-4">
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-800 mb-2">Update Match Results</h3>
+                        <p class="text-sm text-gray-600 mb-2">Manually fetch results for past matches from the archives.</p>
+                        <button id="fetch-results-btn" class="bg-green-700 hover:bg-green-800 text-white font-bold py-2 px-4 rounded-md text-sm">⚓ Fetch Results</button>
+                        <div id="fetch-results-status" class="mt-2 text-sm"></div>
+                    </div>
+                    
+                    <div class="border-t border-gray-300 pt-4">
+                        <h3 class="text-xl font-bold text-gray-800 mb-2">Analyze Performance</h3>
+                        <p class="text-sm text-gray-600 mb-2">Generate new personal lessons from your completed predictions.</p>
+                        <button id="analyze-performance-btn" class="bg-purple-700 hover:bg-purple-800 text-white font-bold py-2 px-4 rounded-md text-sm">🔮 Analyze Performance</button>
+                        <div id="analysis-status" class="mt-2 text-sm"></div>
+                    </div>
+                    
+                    <div class="border-t border-gray-300 pt-4">
+                        <h3 class="text-xl font-bold text-gray-800 mb-2">Backup & Restore</h3>
+                        <p class="text-sm text-gray-600 mb-2">Export your data to a file or import from a previous backup.</p>
+                        <div class="flex gap-2">
+                            <button id="export-data-btn" class="bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded-md text-sm">💾 Export Data</button>
+                            <button id="import-data-btn" class="bg-orange-700 hover:bg-orange-800 text-white font-bold py-2 px-4 rounded-md text-sm">📥 Import Data</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
+
+        <footer class="text-center text-xs text-gray-400 mt-8">
+            <p>Data plundered from football-data.co.uk. Predictions be for entertainment only.</p>
+        </footer>
     </div>
-    
-    <!-- Modals -->
+
+    <!-- API Key Modal -->
+    <div id="api-key-modal" class="modal-overlay hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
+        <div class="modal-content parchment max-w-lg w-full p-6 rounded-lg">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-3xl font-pirata text-gray-900">Gemini API Settings</h2>
+                <button id="close-api-key-btn" class="text-gray-600 hover:text-gray-900 text-3xl">&times;</button>
+            </div>
+            <div class="text-gray-800">
+                <p class="mb-4 text-sm">This app runs entirely in your browser and uses your personal Gemini API key. Your key is stored locally and never sent to any server except Google's Gemini API.</p>
+                <div class="mb-4">
+                    <label for="api-key-input" class="block text-sm font-medium mb-2">Your Gemini API Key:</label>
+                    <input type="password" id="api-key-input" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="Enter your API key">
+                    <p class="text-xs text-gray-600 mt-1">Get your free API key from <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-600 hover:underline">Google AI Studio</a></p>
+                </div>
+                <button id="save-api-key-btn" class="w-full bg-blue-800 text-white font-bold py-2 px-4 rounded hover:bg-blue-900">Save API Key</button>
+                <p id="api-key-status" class="text-sm mt-2"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Captain's Log Modal -->
     <div id="log-book-section" class="hidden fixed inset-0 bg-black bg-opacity-70 p-4 z-50 flex items-center justify-center">
         <div class="parchment w-full max-w-4xl h-[90vh] rounded-lg p-6 flex flex-col">
-            <div class="flex justify-between items-center mb-4 flex-shrink-0"><h2 class="text-4xl font-pirata text-gray-900">The Captain's Log</h2><button id="close-log-book-btn" class="text-3xl text-gray-700 hover:text-gray-900">&times;</button></div>
+            <div class="flex justify-between items-center mb-4 flex-shrink-0">
+                <h2 class="text-4xl font-pirata text-gray-900">The Captain's Log</h2>
+                <button id="close-log-book-btn" class="text-3xl text-gray-700 hover:text-gray-900">&times;</button>
+            </div>
+
             <div class="flex border-b-2 border-amber-800 mb-4 flex-shrink-0">
                 <button data-tab="logbook" class="tab-btn bg-amber-800 text-white font-bold py-2 px-4 rounded-t-lg">Logbook Table</button>
                 <button data-tab="charts" class="tab-btn bg-amber-200 text-amber-800 font-bold py-2 px-4 rounded-t-lg">Charts & Insights</button>
             </div>
+
             <div class="overflow-y-auto flex-grow">
-                <div id="tab-panel-logbook" class="tab-panel"><div id="ledger-container"></div></div>
+                <div id="tab-panel-logbook" class="tab-panel">
+                    <div id="ledger-container" class="w-full"></div>
+                </div>
+
                 <div id="tab-panel-charts" class="tab-panel hidden">
-                    <div id="chart-container" class="mb-6 p-4 bg-amber-50 rounded-lg border-2 border-amber-200"><h3 class="font-pirata text-2xl text-gray-800 mb-2 text-center">Tale of the Tape: Success Rates</h3><div class="max-w-sm mx-auto"><canvas id="success-rate-chart"></canvas></div></div>
-                    <div class="p-4 bg-amber-50 rounded-lg border-2 border-amber-200 text-center"><h3 class="font-pirata text-2xl text-gray-800 mb-2">Recent Lessons from the Log</h3><div id="captains-learnings-content"></div></div>
-                    <div class="mt-6 p-4 bg-blue-50 rounded-lg border-2 border-blue-200 text-left"><h3 class="font-pirata text-2xl text-gray-800 mb-3 text-center">Your Personal Tactics Report</h3><div id="personal-insights-content"><p class="text-gray-600 text-center italic">Analyzing your personal logbook...</p></div></div>
+                    <div id="chart-container" class="mb-6 p-4 bg-amber-50 rounded-lg border-2 border-amber-200">
+                        <h3 class="font-pirata text-2xl text-gray-800 mb-2 text-center">Tale of the Tape: Success Rates</h3>
+                        <div class="max-w-sm mx-auto">
+                            <canvas id="success-rate-chart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4 bg-amber-50 rounded-lg border-2 border-amber-200 text-center mb-6">
+                        <h3 class="font-pirata text-2xl text-gray-800 mb-2">Recent Lessons from the Log</h3>
+                        <div id="captains-learnings-content"></div>
+                    </div>
+
+                    <div class="p-4 bg-blue-50 rounded-lg border-2 border-blue-200 text-left mb-6">
+                        <h3 class="font-pirata text-2xl text-gray-800 mb-3 text-center">Your Personal Tactics Report</h3>
+                        <div id="personal-insights-content">
+                            <p class="text-gray-600 text-center italic">Analyzing your personal logbook...</p>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4 bg-amber-50 rounded-lg border-2 border-amber-200 text-left">
+                        <h3 class="font-pirata text-2xl text-gray-800 mb-3 text-center">Kraken Archetype Guide</h3>
+                        <dl class="space-y-4 text-sm text-gray-800">
+                            <div>
+                                <p class="font-bold text-base">Simple Styles</p>
+                                <div class="pl-4 border-l-2 border-amber-300 mt-2 space-y-2">
+                                    <div>
+                                        <dt class="font-semibold">The Specialist</dt>
+                                        <dd class="italic">Relies heavily (>65%) on one specific model (Pattern Scout for NN, Linear Thinker for LR, or Goal Scorer for Poisson).</dd>
+                                    </div>
+                                    <div>
+                                        <dt class="font-semibold">The Historian</dt>
+                                        <dd class="italic">Uses the maximum data range (6 seasons), believing long-term history is the best predictor.</dd>
+                                    </div>
+                                     <div>
+                                        <dt class="font-semibold">The Modernist</dt>
+                                        <dd class="italic">Uses a short data range (2-3 seasons), believing only recent seasons are relevant.</dd>
+                                    </div>
+                                    <div>
+                                        <dt class="font-semibold">The Trend Chaser</dt>
+                                        <dd class="italic">Uses a high recency weighting, putting extreme importance on the last few matches to follow "hot streaks."</dd>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <p class="font-bold text-base">Combination Styles</p>
+                                <div class="pl-4 border-l-2 border-amber-300 mt-2 space-y-2">
+                                    <div>
+                                        <dt class="font-semibold">The "Here and Now" Tactician</dt>
+                                        <dd class="italic">Combines the Modernist and Trend Chaser styles, focusing only on the most immediate team trends.</dd>
+                                    </div>
+                                    <div>
+                                        <dt class="font-semibold">The "Long View" Historian</dt>
+                                        <dd class="italic">Combines the Historian style with a low recency weighting, trusting long-term, stable patterns over fleeting form.</dd>
+                                    </div>
+                                </div>
+                            </div>
+                        </dl>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Analysis Modal -->
     <div id="analysis-modal" class="hidden fixed inset-0 bg-black bg-opacity-80 p-4 z-[60] flex items-center justify-center">
         <button id="close-analysis-modal-btn" class="absolute top-4 right-4 text-4xl text-white hover:text-gray-300">&times;</button>
         <div id="analysis-modal-content" class="parchment w-full max-w-3xl h-[90vh] rounded-lg p-6 overflow-y-auto"></div>
     </div>
+
+    <!-- Kraken's Helm Modal -->
     <div id="helm-modal" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
         <div class="parchment max-w-lg w-full p-6 rounded-lg text-gray-800 overflow-y-auto max-h-[90vh]">
-            <div class="flex justify-between items-center mb-4"><h2 class="text-3xl font-pirata text-gray-900">The Kraken's Helm</h2><button id="close-helm-btn" class="text-3xl text-gray-700 hover:text-gray-900">&times;</button></div>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-3xl font-pirata text-gray-900">The Kraken's Helm</h2>
+                <button id="close-helm-btn" class="text-3xl text-gray-700 hover:text-gray-900">&times;</button>
+            </div>
+            
             <div class="space-y-6">
-                 <div>
+                <div>
+                    <h3 class="font-pirata text-xl text-gray-800 border-b-2 border-amber-800 pb-1 mb-3">Forecast Parameters</h3>
+                    <p class="text-sm text-gray-600 mb-4">Adjust how the Kraken makes a prediction for a single match.</p>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="nn-weight-slider" class="block font-semibold">Neural Network (<span id="nn-weight-value">40</span>%)</label>
+                            <p class="text-xs text-gray-500">Trusts deep, complex patterns from historical data.</p>
+                            <input id="nn-weight-slider" type="range" min="0" max="100" value="40" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-weight">
+                        </div>
+                        <div>
+                            <label for="lr-weight-slider" class="block font-semibold">Logistic Regression (<span id="lr-weight-value">25</span>%)</label>
+                            <p class="text-xs text-gray-500">Trusts simpler, more direct statistical relationships.</p>
+                            <input id="lr-weight-slider" type="range" min="0" max="100" value="25" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-weight">
+                        </div>
+                        <div>
+                            <label for="poisson-weight-slider" class="block font-semibold">Poisson Model (<span id="poisson-weight-value">35</span>%)</label>
+                            <p class="text-xs text-gray-500">Trusts the raw potential for scoring goals.</p>
+                            <input id="poisson-weight-slider" type="range" min="0" max="100" value="35" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-weight">
+                        </div>
+                        <div>
+                            <label for="temp-slider" class="block font-semibold">Prediction Confidence (<span id="temp-value-label">Balanced</span>)</label>
+                            <p class="text-xs text-gray-500">"Cautious" produces closer probabilities. "Confident" produces more decisive (but riskier) predictions.</p>
+                            <input id="temp-slider" type="range" min="10" max="20" value="15" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+
+                <div>
                     <h3 class="font-pirata text-xl text-gray-800 border-b-2 border-amber-800 pb-1 mb-3">Training Parameters</h3>
-                    <p class="text-sm text-gray-600 mb-4">Change the Kraken's diet. To apply, save your settings then awaken the Kraken.</p>
+                    <p class="text-sm text-gray-600 mb-4">Change the Kraken's diet. To apply these, save your settings, then awaken the Kraken on the main page.</p>
                      <div class="space-y-4">
-                        <div><label for="data-range-slider" class="block font-semibold">Training Data Range (<span id="data-range-value">6</span> Seasons)</label><input id="data-range-slider" type="range" min="2" max="6" value="6" class="w-full"></div>
-                        <div><label for="recency-slider" class="block font-semibold">Recency Weighting (<span id="recency-value-label">Medium</span>)</label><input id="recency-slider" type="range" min="0" max="100" value="50" class="w-full"></div>
-                        <div class="border-t pt-4"><p class="font-semibold mb-2">Engineered Features</p>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                                <div class="flex items-center"><input type="checkbox" id="feature-form-checkbox" checked class="mr-2"><label for="feature-form-checkbox">Form Stats</label></div>
-                                <div class="flex items-center"><input type="checkbox" id="feature-h2h-checkbox" checked class="mr-2"><label for="feature-h2h-checkbox">Head-to-Head</label></div>
-                                <div class="flex items-center"><input type="checkbox" id="feature-elo-checkbox" checked class="mr-2"><label for="feature-elo-checkbox">Elo Ratings</label></div>
-                                <div class="flex items-center"><input type="checkbox" id="feature-offense-checkbox" checked class="mr-2"><label for="feature-offense-checkbox">Offensive Efficiency</label></div>
-                                <div class="flex items-center"><input type="checkbox" id="feature-defense-checkbox" checked class="mr-2"><label for="feature-defense-checkbox">Defensive Solidity</label></div>
-                                <div class="flex items-center"><input type="checkbox" id="feature-congestion-checkbox" checked class="mr-2"><label for="feature-congestion-checkbox">Fixture Congestion</label></div>
+                        <div>
+                            <label for="data-range-slider" class="block font-semibold">Training Data Range (<span id="data-range-value">6 Seasons</span>)</label>
+                            <p class="text-xs text-gray-500">How many past seasons should the Kraken learn from? (Max 6)</p>
+                            <input id="data-range-slider" type="range" min="2" max="6" value="6" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        <div>
+                            <label for="recency-slider" class="block font-semibold">Recency Weighting (<span id="recency-value-label">Medium</span>)</label>
+                            <p class="text-xs text-gray-500">How much importance should be given to the most recent matches?</p>
+                            <input id="recency-slider" type="range" min="0" max="100" value="50" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        <div class="border-t border-amber-800 border-dashed pt-4">
+                            <p class="font-semibold mb-2">Engineered Features (Select the Kraken's Senses)</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                <div class="flex items-center"><input type="checkbox" id="feature-form-checkbox" checked class="h-4 w-4 rounded mr-2"><label for="feature-form-checkbox">Form Stats (Points, Goals)</label></div>
+                                <div class="flex items-center"><input type="checkbox" id="feature-h2h-checkbox" checked class="h-4 w-4 rounded mr-2"><label for="feature-h2h-checkbox">Head-to-Head History</label></div>
+                                <div class="flex items-center"><input type="checkbox" id="feature-elo-checkbox" checked class="h-4 w-4 rounded mr-2"><label for="feature-elo-checkbox">Elo Ratings</label></div>
+                                <div class="flex items-center"><input type="checkbox" id="feature-offense-checkbox" checked class="h-4 w-4 rounded mr-2"><label for="feature-offense-checkbox">Offensive Efficiency</label></div>
+                                <div class="flex items-center"><input type="checkbox" id="feature-defense-checkbox" checked class="h-4 w-4 rounded mr-2"><label for="feature-defense-checkbox">Defensive Solidity</label></div>
+                                <div class="flex items-center"><input type="checkbox" id="feature-congestion-checkbox" checked class="h-4 w-4 rounded mr-2"><label for="feature-congestion-checkbox">Fixture Congestion</label></div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="mt-8 text-center"><button id="save-settings-btn" class="bg-amber-800 text-white font-bold py-3 px-8 rounded-md w-full">Save Settings</button><p id="helm-status" class="text-sm text-gray-600 mt-2 h-4"></p></div>
+
+            <div class="mt-8 text-center space-y-4">
+                <button id="save-settings-btn" class="bg-amber-800 text-white font-bold py-3 px-8 rounded-md hover:bg-amber-900 disabled:bg-gray-400 text-lg w-full">
+                    Save Settings
+                </button>
+                 <p id="helm-status" class="text-sm text-gray-600 mt-2 h-4"></p>
+            </div>
         </div>
     </div>
+
     <script type="module" src="main.js"></script>
 </body>
 </html>
-
