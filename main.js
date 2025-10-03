@@ -284,7 +284,7 @@ async function findFixturesWithGemini(leagueName, leagueCode, testMode = false) 
         }
         safeToggleClass(fixturesSelectionArea, 'hidden', true);
 
-        // Step 1: Get fixtures
+        // This function now ONLY finds fixtures. No more odds.
         const rawFixtures = await findFixtures(leagueName, apiKey, testMode);
         
         if (rawFixtures.length === 0) {
@@ -297,44 +297,23 @@ async function findFixturesWithGemini(leagueName, leagueCode, testMode = false) 
             return;
         }
 
-        if (geminiStatusArea) {
-            geminiStatusArea.innerHTML = `<div class="flex items-center"><dotlottie-wc src="https://lottie.host/19109b73-f99a-4a89-a48c-d5b90bf22b22/tlVX1kmiPt.lottie" background="transparent" speed="1" style="width: 40px; height: 40px;" loop autoplay></dotlottie-wc><p class="ml-2">Spotted ${rawFixtures.length} voyages... now checking the bookmakers' odds...</p></div>`;
-        }
+        // Add a unique ID and default 'N/A' odds to each fixture
+        const fixturesWithIds = rawFixtures.map(f => ({
+            ...f,
+            id: getCanonicalFixtureId(f),
+            leagueCode: leagueCode,
+            HomeWinOdds: 'N/A',
+            DrawOdds: 'N/A',
+            AwayWinOdds: 'N/A'
+        }));
 
-        // Step 2: Get odds
-        const oddsMap = await getOddsForFixtures(rawFixtures, apiKey);
+        console.log('Found fixtures:', fixturesWithIds);
 
-        // Step 3: Combine and filter
-        const fixturesWithOdds = rawFixtures.map(f => {
-            const key = `${f.HomeTeam.replace(/\s/g, '')}${f.AwayTeam.replace(/\s/g, '')}${f.MatchDate}`;
-            const odds = oddsMap[key] || { HomeWinOdds: 'N/A', DrawOdds: 'N/A', AwayWinOdds: 'N/A' };
-            
-            return {
-                ...f,
-                id: getCanonicalFixtureId(f),
-                leagueCode: leagueCode,
-                HomeWinOdds: odds.HomeWinOdds,
-                DrawOdds: odds.DrawOdds,
-                AwayWinOdds: odds.AwayWinOdds
-            };
-        });
-        
-        const validFixtures = fixturesWithOdds.filter(f => 
-            f.HomeWinOdds !== 'N/A' && f.DrawOdds !== 'N/A' && f.AwayWinOdds !== 'N/A'
-        );
-
-        const filteredCount = fixturesWithOdds.length - validFixtures.length;
-        if (filteredCount > 0) {
-            console.log(`Filtered out ${filteredCount} fixtures missing odds.`);
-        }
-
-        console.log('Found valid fixtures with odds:', validFixtures);
-
-        setAllFoundFixtures(validFixtures);
+        setAllFoundFixtures(fixturesWithIds);
         renderFixtureUI();
 
         if (geminiStatusArea) {
-            geminiStatusArea.innerHTML = `<p class="text-gray-600">Found ${validFixtures.length} skirmishes. Choose which to analyze.</p>`;
+            geminiStatusArea.innerHTML = `<p class="text-gray-600">Found ${fixturesWithIds.length} skirmishes. Choose which to analyze.</p>`;
         }
         safeToggleClass(fixturesSelectionArea, 'hidden', false);
 
