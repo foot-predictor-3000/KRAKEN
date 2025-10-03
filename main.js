@@ -942,7 +942,7 @@ ${insightsString}
 
 // Helper for Gemini calls
 async function callGemini(promptText, apiKey, useGrounding) {
-    const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+    const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
     
     const requestBody = {
         contents: [{
