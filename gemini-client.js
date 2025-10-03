@@ -236,96 +236,53 @@ Your task is to find the pre-match betting odds for the following list of footba
 ${fixtureListString}
 
 **Instructions:**
-1. For each match in the list, use your internal knowledge of betting odds for "[HomeTeam] vs [AwayTeam] odds".
-2. Find the best available DECIMAL odds for Home Win, Draw, and Away Win.
-3. Sources like Oddschecker, Bet365, or SkyBet are reliable.
-4. If you cannot find odds for a specific match, use "N/A" for all three odd values.
+1. For each match in the list, use your internal knowledge of betting odds to find the best available DECIMAL odds for Home Win, Draw, and Away Win.
+2. If you cannot find odds for a specific match, use "N/A" for all three odd values.
 
 **CRITICAL OUTPUT FORMAT:**
-- You MUST return ONLY a single, valid JSON object.
-- The keys should be a unique identifier: HomeTeam + AwayTeam + MatchDate (e.g., "ArsenalChelsea2025-09-28").
-- The value for each key should be an object with: "HomeWinOdds", "DrawOdds", "AwayWinOdds".
+- You MUST return ONLY a single, valid JSON array of objects.
+- Each object in the array MUST have these exact five keys: "HomeTeam", "AwayTeam", "MatchDate", "HomeWinOdds", "DrawOdds", "AwayWinOdds".
+- The "MatchDate" MUST be in "YYYY-MM-DD" format.
+- The team names in your response MUST EXACTLY match the team names from the input list.
 - Do NOT include any explanatory text or markdown.
 
-**Example:**
-{
-  "ArsenalChelsea2025-09-28": {
+**Example of a valid response:**
+[
+  {
+    "HomeTeam": "Arsenal",
+    "AwayTeam": "Chelsea",
+    "MatchDate": "2025-09-28",
     "HomeWinOdds": "2.10",
     "DrawOdds": "3.40",
     "AwayWinOdds": "3.50"
   }
-}
+]
 `;
 
     try {
-        const responseText = await callGemini(prompt, apiKey); // Grounding removed
+        const responseText = await callGemini(prompt, apiKey);
         let cleanedResponse = responseText.replace(/```json|```/g, '').trim();
-        const jsonStartIndex = cleanedResponse.indexOf('{');
-        const jsonEndIndex = cleanedResponse.lastIndexOf('}');
+        const jsonStartIndex = cleanedResponse.indexOf('[');
+        const jsonEndIndex = cleanedResponse.lastIndexOf(']');
 
         if (jsonStartIndex === -1 || jsonEndIndex === -1) {
-            throw new Error('No valid JSON object found in odds response');
+            console.warn('No valid JSON array found in odds response, returning empty array.', cleanedResponse);
+            return []; // Return empty array if no valid JSON
         }
 
         cleanedResponse = cleanedResponse.substring(jsonStartIndex, jsonEndIndex + 1);
-        return JSON.parse(cleanedResponse);
+        const oddsArray = JSON.parse(cleanedResponse);
+        
+        if (!Array.isArray(oddsArray)) {
+            throw new Error('Parsed odds response is not an array');
+        }
+        
+        return oddsArray;
     } catch (error) {
         console.error('Error getting odds:', error);
         throw new Error(`The bookmakers are hiding their odds! ${error.message}`);
     }
 }
-
-/**
- * Gets Quartermaster's tactical briefing
- */
-export async function getQuartermasterReport(homeTeam, awayTeam, apiKey) {
-    const prompt = `**Persona:** You are a ship's Quartermaster, a meticulous and fact-focused intelligence officer. Your primary directive is factual accuracy.
-
-**Task:** Provide a single, cohesive **Tactical Briefing** for the upcoming football match: ${homeTeam} vs ${awayTeam}.
-
-**CRITICAL INSTRUCTIONS:**
-1. Use your knowledge to gather the most current information (latest match results, team news, reliable injury reports, and likely tactical approaches) for both teams.
-2. Factual accuracy is paramount. All information must be up-to-date for the current 2025-2026 season.
-3. Write the tactical briefing based ONLY on verified, current information.
-
-**ABSOLUTELY ESSENTIAL - OUTPUT STRUCTURE:**
-- Your entire response MUST be a single JSON object with ONE key: "tacticalBriefing".
-- The value of "tacticalBriefing" must be a single string.
-- Create 2-4 distinct sections within this string.
-- Each section MUST start with a short, bolded header (e.g., **Team Form**), followed by '::', followed by the paragraph content.
-- Each section (header and content) MUST be separated by '\\n'.
-
-**REQUIRED FORMAT EXAMPLE:**
-"**Recent Form**::Arsenal comes into this match on a five-game winning streak, while their opponent has struggled on the road.\\n**Injury Report**::Arsenal's main striker is a doubt with a minor knock, but their key midfielder is expected to return."`;
-
-    try {
-        const responseText = await callGemini(prompt, apiKey); // Grounding removed
-        console.log('Quartermaster Raw Response:', responseText);
-
-        const cleanedResponse = responseText.replace(/```json|```/g, '').trim();
-        const briefingRegex = /"tacticalBriefing"\s*:\s*"(.*)"/s;
-        const match = cleanedResponse.match(briefingRegex);
-
-        if (!match || !match[1]) {
-            throw new Error('Could not extract tacticalBriefing content from response');
-        }
-
-        const rawContent = match[1];
-        const escapedContent = rawContent.replace(/"/g, '\\"');
-        const validJsonString = `{ "tacticalBriefing": "${escapedContent}" }`;
-        const parsedResponse = JSON.parse(validJsonString);
-
-        if (!parsedResponse.tacticalBriefing) {
-            parsedResponse.tacticalBriefing = "**Intel Report**::Intelligence gathering is ongoing, Captain...";
-        }
-
-        return parsedResponse;
-    } catch (error) {
-        console.error('Error getting Quartermaster report:', error);
-        throw new Error(`The Quartermaster's report got scrambled! ${error.message}`);
-    }
-}
-
 /**
  * Gets Captain's final review
  */
