@@ -481,7 +481,7 @@ export async function runPrediction(fixture, index, predictionId, customSettings
 
     if (!modelsTrained) {
         predictionEl.innerHTML = '<span class="text-orange-500">Ye must awaken the Kraken first!</span>';
-        return;
+        return null; // Return null on failure
     }
 
     const result = await new Promise(resolve => {
@@ -495,12 +495,13 @@ export async function runPrediction(fixture, index, predictionId, customSettings
 
     if (result.type === 'prediction_error') {
         predictionEl.innerHTML = `<span class="text-red-500 text-xs">${result.payload}</span>`;
-        return;
+        return null; // Return null on failure
     }
 
     const { nnProbs, lrProbs, poissonProbs, ensProbs, reasoningStats, officialHomeTeam, officialAwayTeam, settingsUsed } = result.payload;
 
-    const krakenDataForFirestore = {
+    // This function now RETURNS the data instead of trying to save it.
+    const krakenData = {
         nnProbs: Array.from(nnProbs),
         lrProbs: Array.from(lrProbs),
         poissonProbs: Array.from(poissonProbs),
@@ -512,11 +513,6 @@ export async function runPrediction(fixture, index, predictionId, customSettings
         timestamp: new Date()
     };
 
-    try {
-        const predictionDocRef = doc(db, "users", auth.currentUser.uid, "unlocked_predictions", predictionId);
-        await updateDoc(predictionDocRef, { krakenAnalysis: krakenDataForFirestore });
-    } catch (error) {
-        console.error("Failed to save Kraken analysis to Firestore:", error);
-        predictionEl.innerHTML = `<p class="text-red-500 text-xs mt-2">Warning: Could not save result to your logbook.</p>`;
-    }
+    // The old Firestore code is removed. We just return the data.
+    return krakenData;
 }
