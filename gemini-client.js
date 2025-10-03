@@ -1,6 +1,6 @@
-// gemini-client.js (Corrected Version)
+// gemini-client.js (Full Corrected Version)
 
-const GEMINI_API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+const GEMINI_API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
 /**
  * Standardizes team names to match historical data format
@@ -45,7 +45,7 @@ function standardizeTeamName(teamName) {
 /**
  * Makes a call to Gemini API
  */
-async function callGemini(promptText, apiKey) { // The 'useGrounding' parameter is removed
+async function callGemini(promptText, apiKey) {
     if (!apiKey) {
         throw new Error('API key is required. Please set your Gemini API key in settings.');
     }
@@ -61,10 +61,6 @@ async function callGemini(promptText, apiKey) { // The 'useGrounding' parameter 
             temperature: 0.7,
         }
     };
-
-    // THIS IS THE SECTION THAT HAS BEEN REMOVED.
-    // The old code tried to add a web search tool here, which caused the error.
-    // By removing it, we no longer ask the API for a feature it doesn't have.
 
     try {
         const response = await fetch(`${GEMINI_API_ENDPOINT}?key=${apiKey}`, {
@@ -161,7 +157,6 @@ Your task is to find all upcoming league matches for '${searchLeagueName}'.
 `;
 
     try {
-        // The last argument 'true' is no longer needed but leaving it doesn't hurt
         const responseText = await callGemini(prompt, apiKey); 
         console.log('Raw Gemini Response:', responseText);
 
@@ -283,6 +278,58 @@ ${fixtureListString}
         throw new Error(`The bookmakers are hiding their odds! ${error.message}`);
     }
 }
+
+/**
+ * Gets Quartermaster's tactical briefing
+ */
+export async function getQuartermasterReport(homeTeam, awayTeam, apiKey) {
+    const prompt = `**Persona:** You are a ship's Quartermaster, a meticulous and fact-focused intelligence officer. Your primary directive is factual accuracy.
+
+**Task:** Provide a single, cohesive **Tactical Briefing** for the upcoming football match: ${homeTeam} vs ${awayTeam}.
+
+**CRITICAL INSTRUCTIONS:**
+1. Use your knowledge to gather the most current information (latest match results, team news, reliable injury reports, and likely tactical approaches) for both teams.
+2. Factual accuracy is paramount. All information must be up-to-date for the current 2025-2026 season.
+3. Write the tactical briefing based ONLY on verified, current information.
+
+**ABSOLUTELY ESSENTIAL - OUTPUT STRUCTURE:**
+- Your entire response MUST be a single JSON object with ONE key: "tacticalBriefing".
+- The value of "tacticalBriefing" must be a single string.
+- Create 2-4 distinct sections within this string.
+- Each section MUST start with a short, bolded header (e.g., **Team Form**), followed by '::', followed by the paragraph content.
+- Each section (header and content) MUST be separated by '\\n'.
+
+**REQUIRED FORMAT EXAMPLE:**
+"**Recent Form**::Arsenal comes into this match on a five-game winning streak, while their opponent has struggled on the road.\\n**Injury Report**::Arsenal's main striker is a doubt with a minor knock, but their key midfielder is expected to return."`;
+
+    try {
+        const responseText = await callGemini(prompt, apiKey);
+        console.log('Quartermaster Raw Response:', responseText);
+
+        const cleanedResponse = responseText.replace(/```json|```/g, '').trim();
+        const briefingRegex = /"tacticalBriefing"\s*:\s*"(.*)"/s;
+        const match = cleanedResponse.match(briefingRegex);
+
+        if (!match || !match[1]) {
+            throw new Error('Could not extract tacticalBriefing content from response');
+        }
+
+        const rawContent = match[1];
+        const escapedContent = rawContent.replace(/"/g, '\\"');
+        const validJsonString = `{ "tacticalBriefing": "${escapedContent}" }`;
+        const parsedResponse = JSON.parse(validJsonString);
+
+        if (!parsedResponse.tacticalBriefing) {
+            parsedResponse.tacticalBriefing = "**Intel Report**::Intelligence gathering is ongoing, Captain...";
+        }
+
+        return parsedResponse;
+    } catch (error) {
+        console.error('Error getting Quartermaster report:', error);
+        throw new Error(`The Quartermaster's report got scrambled! ${error.message}`);
+    }
+}
+
 /**
  * Gets Captain's final review
  */
@@ -330,7 +377,7 @@ ${lessonsSection}
 }`;
 
     try {
-        const responseText = await callGemini(prompt, apiKey); // Grounding removed
+        const responseText = await callGemini(prompt, apiKey);
         console.log('Captain Raw Response:', responseText);
 
         const jsonStart = responseText.indexOf('{');
