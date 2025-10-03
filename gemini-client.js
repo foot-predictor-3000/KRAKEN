@@ -1,6 +1,6 @@
-// gemini-client.js - Direct Gemini API calls using user's API key
+// gemini-client.js (Corrected Version)
 
-const GEMINI_API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+const GEMINI_API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
 /**
  * Standardizes team names to match historical data format
@@ -45,7 +45,7 @@ function standardizeTeamName(teamName) {
 /**
  * Makes a call to Gemini API
  */
-async function callGemini(promptText, apiKey, useGrounding = false) {
+async function callGemini(promptText, apiKey) { // The 'useGrounding' parameter is removed
     if (!apiKey) {
         throw new Error('API key is required. Please set your Gemini API key in settings.');
     }
@@ -62,17 +62,9 @@ async function callGemini(promptText, apiKey, useGrounding = false) {
         }
     };
 
-    // Add grounding for web search when needed
-    if (useGrounding) {
-        requestBody.tools = [{
-            google_search_retrieval: {
-                dynamic_retrieval_config: {
-                    mode: "MODE_DYNAMIC",
-                    dynamic_threshold: 0.3
-                }
-            }
-        }];
-    }
+    // THIS IS THE SECTION THAT HAS BEEN REMOVED.
+    // The old code tried to add a web search tool here, which caused the error.
+    // By removing it, we no longer ask the API for a feature it doesn't have.
 
     try {
         const response = await fetch(`${GEMINI_API_ENDPOINT}?key=${apiKey}`, {
@@ -148,7 +140,7 @@ Your task is to find all upcoming league matches for '${searchLeagueName}'.
 - Do not include matches that have already started today unless in test mode.
 
 **SEARCH INSTRUCTIONS:**
-- To find the fixtures, perform a targeted search for: "${searchLeagueName} fixtures this week".
+- To find the fixtures, use your knowledge of recent football schedules for: "${searchLeagueName} fixtures this week".
 - Check reliable sources like BBC Sport, Sky Sports, or the official league website.
 
 **CRITICAL OUTPUT FORMAT:**
@@ -169,7 +161,8 @@ Your task is to find all upcoming league matches for '${searchLeagueName}'.
 `;
 
     try {
-        const responseText = await callGemini(prompt, apiKey, true);
+        // The last argument 'true' is no longer needed but leaving it doesn't hurt
+        const responseText = await callGemini(prompt, apiKey); 
         console.log('Raw Gemini Response:', responseText);
 
         let cleanedResponse = responseText.replace(/```json|```/g, '').trim();
@@ -243,7 +236,7 @@ Your task is to find the pre-match betting odds for the following list of footba
 ${fixtureListString}
 
 **Instructions:**
-1. For each match in the list, search for "[HomeTeam] vs [AwayTeam] odds".
+1. For each match in the list, use your internal knowledge of betting odds for "[HomeTeam] vs [AwayTeam] odds".
 2. Find the best available DECIMAL odds for Home Win, Draw, and Away Win.
 3. Sources like Oddschecker, Bet365, or SkyBet are reliable.
 4. If you cannot find odds for a specific match, use "N/A" for all three odd values.
@@ -265,7 +258,7 @@ ${fixtureListString}
 `;
 
     try {
-        const responseText = await callGemini(prompt, apiKey, true);
+        const responseText = await callGemini(prompt, apiKey); // Grounding removed
         let cleanedResponse = responseText.replace(/```json|```/g, '').trim();
         const jsonStartIndex = cleanedResponse.indexOf('{');
         const jsonEndIndex = cleanedResponse.lastIndexOf('}');
@@ -291,9 +284,9 @@ export async function getQuartermasterReport(homeTeam, awayTeam, apiKey) {
 **Task:** Provide a single, cohesive **Tactical Briefing** for the upcoming football match: ${homeTeam} vs ${awayTeam}.
 
 **CRITICAL INSTRUCTIONS:**
-1. Use search to gather the most current information (latest match results, team news, reliable injury reports, and likely tactical approaches) for both teams.
+1. Use your knowledge to gather the most current information (latest match results, team news, reliable injury reports, and likely tactical approaches) for both teams.
 2. Factual accuracy is paramount. All information must be up-to-date for the current 2025-2026 season.
-3. Write the tactical briefing based ONLY on verified, current information you find.
+3. Write the tactical briefing based ONLY on verified, current information.
 
 **ABSOLUTELY ESSENTIAL - OUTPUT STRUCTURE:**
 - Your entire response MUST be a single JSON object with ONE key: "tacticalBriefing".
@@ -306,7 +299,7 @@ export async function getQuartermasterReport(homeTeam, awayTeam, apiKey) {
 "**Recent Form**::Arsenal comes into this match on a five-game winning streak, while their opponent has struggled on the road.\\n**Injury Report**::Arsenal's main striker is a doubt with a minor knock, but their key midfielder is expected to return."`;
 
     try {
-        const responseText = await callGemini(prompt, apiKey, true);
+        const responseText = await callGemini(prompt, apiKey); // Grounding removed
         console.log('Quartermaster Raw Response:', responseText);
 
         const cleanedResponse = responseText.replace(/```json|```/g, '').trim();
@@ -380,7 +373,7 @@ ${lessonsSection}
 }`;
 
     try {
-        const responseText = await callGemini(prompt, apiKey, false);
+        const responseText = await callGemini(prompt, apiKey); // Grounding removed
         console.log('Captain Raw Response:', responseText);
 
         const jsonStart = responseText.indexOf('{');
