@@ -1,8 +1,6 @@
 // worker-handler.js (Updated with new engineered features)
 
 import { setEloRange } from './ui.js';
-import { doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { auth, db } from './firebase.js';
 
 let trainingWorker;
 let workerUrl;
