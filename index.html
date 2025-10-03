@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Captain Turfbeard's Football Analysis (Local Edition)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English&family=Pirata+One&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { 'pirata': ['"Pirata One"', 'cursive'], 'english': ['"IM Fell English"', 'serif'] }
+                }
+            }
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://unpkg.com/@lottiefiles/dotlottie-wc@0.6.2/dist/dotlottie-wc.js" type="module"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="manifest" href="data:application/json;base64,ew0KICAic2hvcnRfbmFtZSI6ICJGb290YmFsbFByZWRpY3RvciIsDQogICJuYW1lIjogIk9mZmxpbmUgRm9vdGJhbGwgUHJlZGljdG9yIiwNCiAgImljb25zIjogWw0KICAgIHsNCiAgICAgICJzcmMiOiAiaWNvbnMvaWNvbi0xOTIucG5nIiwNCiAgICAgICJ0eXBlIjogImltYWdlL3BuZyIsDQogICAgICAic2l6ZXMiOiAiMTkyxDE5MiINCiAgICB9LA0KICAgIHsNCiAgICAgICJzcmMiOiAiaWNvbnMvaWNvbi01MTIucG5nIiwNCiAgICAgICJ0eXBlIjogImltYWdlL3BuZyIsDQogICAgICAic2l6ZXMiOiAiNTEyeDUxMiINCiAgICB9DQogIF0sDQogICJzdGFydF91cmwiOiAiLiIsDQogICJkaXNwbGF5IjogInNtYW5kYWxvbmUiLA0KICAidGhlbWVfY29sb3IiOiAiIzAwMDAwMCIsDQogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiNmZmZmZmYiDQp9">
+    <style>
+        body { background-color: #0a2d4d; background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><filter id="f" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="3" seed="1" result="noise"/><feDiffuseLighting in="noise" lighting-color="%230d3a61" surfaceScale="2"><feDistantLight azimuth="45" elevation="60"/></feDiffuseLighting></filter><rect width="100%" height="100%" filter="url(%23f)"/></svg>'); background-attachment: fixed; }
+        .parchment { background-color: #fdf5e6; border: 10px solid #d2b48c; box-shadow: inset 0 0 8px rgba(139, 69, 19, 0.2); background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><filter id="f1" x="0" y="0"><feTurbulence type="fractalNoise" baseFrequency="0.2" numOctaves="5" seed="10"/></filter><rect width="100%" height="100%" filter="url(%23f1)" opacity="0.05"/></svg>'); }
+        .svg-button { transition: transform 0.2s, filter 0.2s; filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.5)); background: none; border: none; padding: 0; }
+        .svg-button:hover:not(:disabled) { transform: scale(1.05); filter: drop-shadow(3px 3px 4px rgba(0,0,0,0.6)) brightness(1.1); cursor: pointer; }
+        .svg-button:disabled { filter: grayscale(80%); cursor: not-allowed; }
+        .hidden { display: none; }
+        #unlocked-predictions-container .p-4 * { color: #1f2937 !important; }
+    </style>
+</head>
+<body class="font-english antialiased text-gray-200">
+    <div id="root" class="container mx-auto p-4 max-w-3xl">
+        <header class="parchment rounded-lg shadow-md p-6 mb-6">
+            <div class="text-right text-gray-800 -mt-2 mb-4 flex justify-end items-center gap-4">
+                 <button id="open-helm-btn" class="font-bold bg-blue-800 text-white py-1 px-3 rounded-md hover:bg-blue-900 text-xs">Kraken's Helm</button>
+                 <button id="log-book-btn" class="font-bold bg-amber-800 text-white py-1 px-3 rounded-md hover:bg-amber-900 text-xs">Captain's Log</button>
+            </div>
+            <h1 class="text-5xl font-pirata text-gray-900 text-center">Captain Turfbeard's Local Edition</h1>
+            <p class="text-gray-600 mt-4 text-center"><strong>Ahoy!</strong> This version runs entirely on yer own machine. Provide yer own Gemini API Key to get started.</p>
+        </header>
+
+        <main>
+            <!-- API Key and Data Management Section -->
+            <div class="parchment rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-3xl font-pirata mb-4 text-gray-900">Ship's Setup</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label for="api-key-input" class="block text-sm font-medium text-gray-700 mb-1">Your Google Gemini API Key</label>
+                        <div class="flex gap-2">
+                            <input type="password" id="api-key-input" class="w-full p-2 border border-gray-300 rounded-md shadow-sm text-gray-900" placeholder="Paste your API key here">
+                            <button id="save-api-key-btn" class="bg-green-700 hover:bg-green-800 text-white font-bold py-2 px-4 rounded-md">Save</button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-dashed">
+                        <button id="fetch-results-btn" class="bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded-md">Manually Fetch Results</button>
+                        <button id="export-data-btn" class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-md">Export Data</button>
+                        <button id="import-data-btn" class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-md">Import Data</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 1 -->
+            <div class="parchment rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-3xl font-pirata mb-2 text-gray-900">Step 1: Load the coffers</h2>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <div class="flex-grow">
+                        <label for="league-select" class="block text-sm font-medium text-gray-700 mb-1">Which sea are we headed to, captain?</label>
+                        <select id="league-select" class="w-full p-2 border rounded-md text-gray-900">
+                            <option value="E0">Premier League</option>
+                            <option value="E1">English Championship</option>
+                            <option value="SP1">Spanish La Liga</option>
+                            <option value="D1">German Bundesliga</option>
+                            <option value="I1">Italian Serie A</option>
+                            <option value="F1">French Ligue 1</option>
+                        </select>
+                    </div>
+                    <button id="fetch-data-btn" class="svg-button self-end">
+                        <svg width="280" height="50"><text x="140" y="33" font-family="Pirata One" font-size="24" fill="white" text-anchor="middle">Plunder The Depths</text></svg>
+                    </button>
+                </div>
+                <div id="status-area" class="mt-4 text-sm text-gray-600 h-5"></div>
+            </div>
+
+            <!-- Step 2 -->
+            <div id="training-parchment" class="parchment rounded-lg shadow-md p-6 mb-6 hidden">
+                <h2 class="text-3xl font-pirata mb-4 text-gray-900">Step 2: Awaken the Kraken</h2>
+                <button id="train-models-btn" class="svg-button mx-auto">
+                    <svg width="220" height="50"><text x="110" y="33" font-family="Pirata One" font-size="24" fill="white" text-anchor="middle">Awaken the Kraken</text></svg>
+                </button>
+                <div id="training-status-area" class="mt-2 text-sm text-gray-600 text-center"></div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="parchment rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-3xl font-pirata mb-4 text-gray-900">Step 3: Gaze into the abyss</h2>
+                <button id="find-fixtures-btn" class="svg-button w-full">
+                    <svg width="100%" height="50"><text x="50%" y="33" font-family="Pirata One" font-size="24" fill="white" text-anchor="middle">Spot Upcoming Skirmishes</text></svg>
+                </button>
+                <div class="mt-2 text-right text-sm">
+                  <input type="checkbox" id="test-mode-checkbox" class="mr-1"><label for="test-mode-checkbox" class="text-gray-700">Test Mode (Find Past Games)</label>
+                </div>
+                <div id="gemini-status-area" class="mt-4 text-sm text-gray-600 min-h-[20px]"></div>
+                <div id="fixtures-selection-area" class="hidden mt-4 space-y-2">
+                    <h3 class="text-2xl font-pirata text-gray-800">Available Skirmishes</h3>
+                    <div id="available-fixtures-container" class="space-y-2"></div>
+                </div>
+            </div>
+
+            <!-- Step 4 -->
+            <div id="unlocked-predictions-section" class="parchment rounded-lg shadow-md p-6 mb-6">
+                 <h2 class="text-3xl font-pirata mb-1 text-gray-900">Step 4: The Captain's Desk</h2>
+                 <div id="unlocked-predictions-container" class="space-y-4"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="log-book-section" class="hidden fixed inset-0 bg-black bg-opacity-70 p-4 z-50 flex items-center justify-center">
+        <div class="parchment w-full max-w-4xl h-[90vh] rounded-lg p-6 flex flex-col">
+            <div class="flex justify-between items-center mb-4"><h2 class="text-4xl font-pirata text-gray-900">The Captain's Log</h2><button id="close-log-book-btn" class="text-3xl">&times;</button></div>
+            <div class="flex border-b-2 border-amber-800 mb-4">
+                <button data-tab="logbook" class="tab-btn bg-amber-800 text-white py-2 px-4">Logbook</button>
+                <button data-tab="charts" class="tab-btn py-2 px-4">Charts & Insights</button>
+            </div>
+            <div class="overflow-y-auto flex-grow">
+                <div id="tab-panel-logbook" class="tab-panel"><div id="ledger-container"></div></div>
+                <div id="tab-panel-charts" class="tab-panel hidden">
+                    <div id="chart-container" class="mb-6 p-4 bg-amber-50 rounded-lg hidden"><canvas id="success-rate-chart"></canvas></div>
+                    <div class="p-4 bg-amber-50 rounded-lg"><h3 class="font-pirata text-2xl mb-2">Recent Lessons</h3><div id="captains-learnings-content"></div></div>
+                    <div class="mt-6 p-4 bg-blue-50 rounded-lg"><h3 class="font-pirata text-2xl mb-3">Your Personal Tactics Report</h3><div id="personal-insights-content"></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="helm-modal" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
+        <div class="parchment max-w-lg w-full p-6 rounded-lg text-gray-800 overflow-y-auto max-h-[90vh]">
+             <div class="flex justify-between items-center mb-4"><h2 class="text-3xl font-pirata text-gray-900">The Kraken's Helm</h2><button id="close-helm-btn" class="text-3xl">&times;</button></div>
+             <!-- Helm content remains the same as original -->
+        </div>
+    </div>
+
+    <script type="module" src="main.js"></script>
+</body>
+</html>
