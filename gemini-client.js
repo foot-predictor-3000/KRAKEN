@@ -42,13 +42,12 @@ function standardizeTeamName(teamName) {
     return teamName;
 }
 
-/**
- * Makes a call to Gemini API
- */
+// gemini-client.js -> REPLACE THIS FUNCTION
 async function callGemini(promptText, apiKey) {
     if (!apiKey) {
         throw new Error('API key is required. Please set your Gemini API key in settings.');
     }
+    const GEMINI_API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
 
     const requestBody = {
         contents: [{
@@ -57,6 +56,7 @@ async function callGemini(promptText, apiKey) {
             }]
         }],
         generationConfig: {
+            responseMimeType: "application/json",
             maxOutputTokens: 8192,
             temperature: 0.7,
         }
@@ -65,9 +65,7 @@ async function callGemini(promptText, apiKey) {
     try {
         const response = await fetch(`${GEMINI_API_ENDPOINT}?key=${apiKey}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
         });
 
@@ -78,42 +76,38 @@ async function callGemini(promptText, apiKey) {
         }
 
         const data = await response.json();
-        
         if (!data.candidates || !data.candidates[0]) {
-            throw new Error('No response from Gemini');
+            if (data.promptFeedback && data.promptFeedback.blockReason) {
+                 throw new Error(`Request was blocked by the API for safety reasons: ${data.promptFeedback.blockReason}`);
+            }
+            throw new Error('No response candidate found from Gemini.');
         }
 
         const candidate = data.candidates[0];
-        
         if (candidate.finishReason && candidate.finishReason !== 'STOP') {
-            console.warn(`Response finished with reason: ${candidate.finishReason}`);
+            console.warn(`Response finished with reason: ${candidate.finishReason}.`);
+             if (candidate.finishReason === 'SAFETY') {
+                 throw new Error('Gemini blocked the response due to safety settings.');
+             }
         }
-
         return candidate.content.parts[0].text;
     } catch (error) {
         console.error('Gemini API call failed:', error);
         throw error;
     }
 }
-
-/**
- * Finds upcoming fixtures for a league
- */
+// gemini-client.js -> REPLACE THIS FUNCTION
 export async function findFixtures(leagueName, apiKey, testMode = false) {
     const leagueNameMapping = {
-        "English Premier League": "Premier League",
-        "Spanish La Liga": "La Liga",
-        "German Bundesliga": "Bundesliga",
-        "Italian Serie A": "Serie A",
-        "French Ligue 1": "Ligue 1",
-        "Dutch Eredivisie": "Eredivisie",
+        "English Premier League": "Premier League", "English Championship": "Championship",
+        "English League 1": "League One", "English League 2": "League Two",
+        "Spanish La Liga": "La Liga", "German Bundesliga": "Bundesliga",
+        "Italian Serie A": "Serie A", "French Ligue 1": "Ligue 1", "Dutch Eredivisie": "Eredivisie",
     };
-    
     const searchLeagueName = leagueNameMapping[leagueName] || leagueName;
     const today = new Date();
-    
     let startDate, endDate;
-    
+
     if (testMode) {
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(today.getDate() - 7);
@@ -126,110 +120,29 @@ export async function findFixtures(leagueName, apiKey, testMode = false) {
         endDate = sevenDaysFromNow.toISOString().split('T')[0];
     }
 
-    const modeText = testMode 
-        ? `PAST matches that were played between ${startDate} and ${endDate}` 
-        : `UPCOMING matches scheduled between ${startDate} and ${endDate}`;
-
-    const prompt = `You are a football fixture data expert. Today's date is ${today.toISOString().split('T')[0]}.
-
-TASK: Find ${modeText} for ${searchLeagueName}.
-
-${testMode ? 'IMPORTANT: These should be COMPLETED matches from the past week.' : 'IMPORTANT: These should be FUTURE matches not yet played.'}
-
-Search for: "${searchLeagueName} fixtures ${testMode ? 'results last week' : 'this week next week'}"
-
-CRITICAL OUTPUT RULES:
-1. Return ONLY a valid JSON array - no other text
-2. Each match needs exactly: "HomeTeam", "AwayTeam", "MatchDate" (YYYY-MM-DD format)
-3. MatchDate MUST be between ${startDate} and ${endDate} (inclusive)
-4. If no fixtures found, return: []
-
-Valid example:
-[
-  {
-    "HomeTeam": "Arsenal",
-    "AwayTeam": "Chelsea",
-    "MatchDate": "${startDate}"
-  }
-]`;
+    const prompt = `You are a football fixture data expert. Today's date is ${new Date().toISOString().split('T')[0]}.
+    Your task is to find all league matches for '${searchLeagueName}'.
+    - ${testMode ? `Find all matches that happened between ${startDate} and ${endDate}.` : `Find all matches scheduled from today (${startDate}) up to and including ${endDate}.`}
+    - Your entire response MUST be ONLY a single, valid JSON array of objects.
+    - Each object MUST have these exact three keys: "HomeTeam", "AwayTeam", and "MatchDate".
+    - "MatchDate" MUST be in "YYYY-MM-DD" format.
+    - If no fixtures are found, you MUST return an empty JSON array: [].
+    Example of a valid response:
+    [
+      { "HomeTeam": "Arsenal", "AwayTeam": "Chelsea", "MatchDate": "${startDate}" }
+    ]`;
 
     try {
-        const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
-        
-        const requestBody = {
-            contents: [{
-                parts: [{ text: prompt }]
-            }],
-            tools: [{
-                googleSearch: {}
-            }],
-            generationConfig: {
-                temperature: 0.3,
-                maxOutputTokens: 8192
-            }
-        };
-
-        const response = await fetch(`${endpoint}?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
-        });
-
-        if (!response.ok) {
-            throw new Error(`API call failed: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        const responseText = data.candidates[0].content.parts[0].text;
-        console.log('Raw Gemini Response:', responseText);
-
-        let cleanedResponse = responseText.replace(/```json|```/g, '').trim();
-        const jsonStartIndex = cleanedResponse.indexOf('[');
-        const jsonEndIndex = cleanedResponse.lastIndexOf(']');
-
-        if (jsonStartIndex === -1 || jsonEndIndex === -1) {
-            throw new Error('No valid JSON array found in response');
-        }
-
-        cleanedResponse = cleanedResponse.substring(jsonStartIndex, jsonEndIndex + 1);
-        const rawFixtures = JSON.parse(cleanedResponse);
+        const responseJsonString = await callGemini(prompt, apiKey);
+        const rawFixtures = JSON.parse(responseJsonString);
 
         if (!Array.isArray(rawFixtures)) {
-            throw new Error('Response is not an array');
+            throw new Error("Response was not a JSON array");
         }
-
-        const validEndDate = new Date(endDate);
-        validEndDate.setHours(23, 59, 59, 999);
-
-        const standardizedFixtures = rawFixtures
-            .map((fixture, index) => {
-                const requiredFields = ['HomeTeam', 'AwayTeam', 'MatchDate'];
-                const missingFields = requiredFields.filter(field => !fixture[field]);
-
-                if (missingFields.length > 0) {
-                    console.warn(`Fixture ${index} missing fields:`, missingFields);
-                    return null;
-                }
-
-                const matchDate = new Date(fixture.MatchDate);
-                if (matchDate > validEndDate) {
-                    console.warn(`Fixture beyond window:`, fixture);
-                    return null;
-                }
-
-                return {
-                    ...fixture,
-                    HomeTeam: standardizeTeamName(fixture.HomeTeam),
-                    AwayTeam: standardizeTeamName(fixture.AwayTeam)
-                };
-            })
-            .filter(f => f !== null);
-
-        console.log(`Validated ${standardizedFixtures.length} fixtures.`);
-        return standardizedFixtures;
+        return rawFixtures;
     } catch (error) {
         console.error('Error finding fixtures:', error);
-        throw new Error(`The spyglass is cracked! ${error.message}`);
+        throw new Error(`The spyglass returned garbled data! ${error.message}`);
     }
 }
 
@@ -297,94 +210,53 @@ ${fixtureListString}
     }
 }
 
-/**
- * Gets Quartermaster's tactical briefing
- */
-export async function getQuartermasterReport(homeTeam, awayTeam, apiKey) {
-    const prompt = `**Persona:** You are a ship's Quartermaster, a meticulous and fact-focused intelligence officer.
+// gemini-client.js -> REPLACE THIS FUNCTION
+export async function getQuartermasterReport(homeTeam, awayTeam, krakenStats, apiKey) {
+    const statsReport = `
+    - Match: ${homeTeam} (Home) vs ${awayTeam} (Away)
+    - Home Team Elo Rating: ${Math.round(krakenStats.homeElo)} (Grade: ${krakenStats.homeEloGrade})
+    - Away Team Elo Rating: ${Math.round(krakenStats.awayElo)} (Grade: ${krakenStats.awayEloGrade})
+    - Home Team Form (last 5 at home): ${Math.round(krakenStats.homeStats.formPoints * 15)}/15 points
+    - Away Team Form (last 5 away): ${Math.round(krakenStats.awayStats.formPoints * 15)}/15 points
+    - Home Team Attack (avg goals scored at home): ${krakenStats.homeStats.avgGoalsScored.toFixed(2)}
+    - Away Team Attack (avg goals scored away): ${krakenStats.awayStats.avgGoalsScored.toFixed(2)}
+    - Home Team Defence (avg goals conceded at home): ${krakenStats.homeStats.avgGoalsConceded.toFixed(2)}
+    - Away Team Defence (avg goals conceded away): ${krakenStats.awayStats.avgGoalsConceded.toFixed(2)}
+    - Head-to-Head (last 5): ${krakenStats.h2hStats.homeTeamWins} ${homeTeam} wins, ${krakenStats.h2hStats.draws} draws, ${krakenStats.h2hStats.awayTeamWins} ${awayTeam} wins.
+    `;
 
-**Task:** Search for and report the MOST CURRENT information for: ${homeTeam} vs ${awayTeam}.
-
-**WHAT TO SEARCH FOR:**
-1. Current league position and points for both teams
-2. Recent results (last 5 matches) for both teams
-3. Current injuries and suspensions
-4. Recent team news and any tactical changes
-5. Head-to-head recent history
-
-**CRITICAL INSTRUCTIONS:**
-- Be specific and factual. Use real, verified data only.
-- Today's date for reference: ${new Date().toISOString().split('T')[0]}
-- Focus on the current 2025-2026 season data.
-
-**OUTPUT STRUCTURE:**
-Your entire response MUST be a single JSON object with ONE key: "tacticalBriefing".
-The value must be a single string with 3-4 sections.
-Each section format: **Header**::Content\\n
-
-Example: "**Current Form**::${homeTeam} has won 3 of last 5, sitting 5th in the table.\\n**Injuries**::Key midfielder out for 2 weeks."`;
+    const prompt = `
+    **Persona:** You are a ship's Quartermaster, a meticulous and fact-focused football analyst. Your primary directive is to turn cold, hard data into a tactical narrative. You do NOT need to search for new information.
+    **Task:** Write a single, cohesive **Tactical Briefing** for the upcoming match: ${homeTeam} vs ${awayTeam}, based **ONLY** on the statistical report provided below.
+    **Statistical Report:**
+    ${statsReport}
+    **CRITICAL INSTRUCTIONS:**
+    1.  **SYNTHESIZE, DO NOT SEARCH:** Your entire report must be based on the numbers in the "Statistical Report". Do not invent or search for external information like injuries or news.
+    2.  **INTERPRET THE DATA:** Explain what the numbers mean. For example, if a team has high Elo but poor form, point that out. If one team has a strong attack but a weak defense, highlight that tactical dynamic.
+    3.  **BE FACTUAL:** Ground every statement in the provided data.
+    **ABSOLUTELY ESSENTIAL - OUTPUT STRUCTURE:**
+    - Your entire response MUST be a single JSON object.
+    - This object must have ONE key: "tacticalBriefing".
+    - The value of "tacticalBriefing" must be a single string containing 2-4 distinct sections.
+    - Each section MUST start with a short, bolded header (e.g., **Team Form**), followed by the separator '::', followed by the paragraph content.
+    - Each section (header and content) MUST be separated from the next by the newline character '\\n'.
+    **REQUIRED FORMAT EXAMPLE for the 'tacticalBriefing' string value:**
+    "**Statistical Standings**::The Elo ratings suggest ${homeTeam} is the stronger crew on paper, but their recent form of only 4 points from 15 is concerning.\\n**Tactical Outlook**::${awayTeam}'s defense appears leaky, conceding over 2 goals per game on their travels. This could be an opportunity for ${homeTeam} if their attack, which averages 1.5 goals, can capitalize."
+    `;
 
     try {
-        const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
-        
-        const requestBody = {
-            contents: [{
-                parts: [{ text: prompt }]
-            }],
-            tools: [{
-                googleSearch: {}
-            }],
-            generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 8192
-            }
-        };
-
-        const response = await fetch(`${endpoint}?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            console.error('Quartermaster API Error:', errorData);
-            throw new Error(`API call failed: ${errorData.error?.message || response.statusText}`);
-        }
-
-        const data = await response.json();
-        
-        if (!data.candidates || !data.candidates[0]) {
-            throw new Error('No response from API');
-        }
-        
-        const responseText = data.candidates[0].content.parts[0].text;
-        console.log('Quartermaster Raw Response:', responseText);
-
-        const cleanedResponse = responseText.replace(/```json|```/g, '').trim();
-        const briefingRegex = /"tacticalBriefing"\s*:\s*"(.*)"/s;
-        const match = cleanedResponse.match(briefingRegex);
-
-        if (!match || !match[1]) {
-            throw new Error('Could not extract tacticalBriefing content from response');
-        }
-
-        const rawContent = match[1];
-        const escapedContent = rawContent.replace(/"/g, '\\"');
-        const validJsonString = `{ "tacticalBriefing": "${escapedContent}" }`;
-        const parsedResponse = JSON.parse(validJsonString);
+        const responseJsonString = await callGemini(prompt, apiKey);
+        const parsedResponse = JSON.parse(responseJsonString);
 
         if (!parsedResponse.tacticalBriefing) {
-            parsedResponse.tacticalBriefing = "**Intel Report**::Intelligence gathering is ongoing, Captain...";
+            return { tacticalBriefing: "**Intel Report**::Intelligence gathering is ongoing, Captain..." };
         }
-
         return parsedResponse;
     } catch (error) {
         console.error('Error getting Quartermaster report:', error);
         throw new Error(`The Quartermaster's report got scrambled! ${error.message}`);
     }
 }
-
 /**
  * Gets Captain's final review
  */
