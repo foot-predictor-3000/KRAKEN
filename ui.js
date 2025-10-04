@@ -580,7 +580,7 @@ function getUnlockedPredictionCardHtml(prediction, prefix = '') {
     </div>`;
 }
 
-// --- MAIN RENDER FUNCTION ---
+// ui.js -> REPLACE THIS FUNCTION
 export function renderFixtureUI() {
     const availableFixturesContainer = safeGetElement('available-fixtures-container');
     const unlockedPredictionsContainer = safeGetElement('unlocked-predictions-container');
@@ -596,51 +596,32 @@ export function renderFixtureUI() {
         });
     }
 
-    // Create a Set of unlocked fixture IDs
     const unlockedFixtureIds = new Set(
-        unlockedPredictions.map((p) => {
-            if (p.fixture && p.fixture.id) return p.fixture.id;
-            return null;
-        }).filter((id) => id !== null),
+        unlockedPredictions.map(p => p.fixture?.id).filter(Boolean)
     );
 
-    const availableFixtures = allFoundFixtures.filter((f) => {
-        if (!f.id) {
-            console.warn('Fixture missing ID:', f);
-            return false;
-        }
-        return !unlockedFixtureIds.has(f.id);
-    });
+    const availableFixtures = allFoundFixtures.filter(f => f.id && !unlockedFixtureIds.has(f.id));
 
     // Render available fixtures
     if (availableFixturesContainer) {
         if (availableFixtures.length > 0) {
-            try {
-                const fixturesHtml = availableFixtures.sort((a, b) => new Date(a.MatchDate) - new Date(b.MatchDate))
-                    .map((fixture) => {
-                        const dateObj = new Date(fixture.MatchDate);
-                        dateObj.setUTCHours(12);
-                        const formattedDate = dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+            const fixturesHtml = availableFixtures
+                .sort((a, b) => new Date(a.MatchDate) - new Date(b.MatchDate))
+                .map((fixture) => {
+                    const dateObj = new Date(fixture.MatchDate);
+                    dateObj.setUTCHours(12);
+                    const formattedDate = dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 
-                        const difficulty = getDifficultyRating(fixture);
-
-                        return `<div class="flex items-center justify-between p-2 bg-gray-50 rounded-md border">
-            <div class="text-sm">
-                <p class="font-bold text-gray-800">${fixture.HomeTeam || 'Unknown'} vs ${fixture.AwayTeam || 'Unknown'}</p>
-                <p class="text-xs text-gray-500">${formattedDate}</p>
-                <p class="text-xs text-gray-600 font-mono mt-1">H:${fixture.HomeWinOdds} D:${fixture.DrawOdds} A:${fixture.AwayWinOdds}</p>
-            </div>
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-xs font-bold px-2 py-1 rounded-md ${difficulty.color} ${difficulty.textColor}">${difficulty.label}</span>
-                                        <button data-fixture-id="${fixture.id}" class="unlock-btn bg-amber-700 hover:bg-amber-800 text-white font-bold py-1 px-3 rounded-md text-xs whitespace-nowrap">Unlock</button>
-                                    </div>
-                                </div>`;
-                    }).join('');
-                availableFixturesContainer.innerHTML = fixturesHtml;
-            } catch (error) {
-                console.error('Error rendering available fixtures:', error);
-                availableFixturesContainer.innerHTML = '<p class="text-red-500 text-sm">Error loading fixtures.</p>';
-            }
+                    // This is the new, cleaner HTML without odds or difficulty
+                    return `<div class="flex items-center justify-between p-3 bg-gray-50 rounded-md border">
+                                <div class="text-sm">
+                                    <p class="font-bold text-gray-800">${fixture.HomeTeam || 'Unknown'} vs ${fixture.AwayTeam || 'Unknown'}</p>
+                                    <p class="text-gray-600">${formattedDate}</p>
+                                </div>
+                                <button data-fixture-id="${fixture.id}" class="unlock-btn bg-amber-700 hover:bg-amber-800 text-white font-bold py-1 px-3 rounded-md text-sm whitespace-nowrap">Unlock</button>
+                            </div>`;
+                }).join('');
+            availableFixturesContainer.innerHTML = fixturesHtml;
         } else {
             availableFixturesContainer.innerHTML = '<p class="text-gray-500 text-sm">All available skirmishes have been unlocked or none were found.</p>';
         }
@@ -659,14 +640,10 @@ export function renderFixtureUI() {
 
         if (upcomingPredictions.length > 0) {
             safeToggleClass('unlocked-predictions-section', 'hidden', false);
-            try {
-                const predictionsHtml = upcomingPredictions.sort((a, b) => new Date(a.fixture.MatchDate) - new Date(b.fixture.MatchDate))
-                    .map((p) => getUnlockedPredictionCardHtml(p, '')).join('');
-                unlockedPredictionsContainer.innerHTML = predictionsHtml;
-            } catch (error) {
-                console.error('Error rendering predictions:', error);
-                unlockedPredictionsContainer.innerHTML = '<p class="text-red-500 text-sm">Error loading predictions.</p>';
-            }
+            const predictionsHtml = upcomingPredictions
+                .sort((a, b) => new Date(a.fixture.MatchDate) - new Date(b.fixture.MatchDate))
+                .map((p) => getUnlockedPredictionCardHtml(p, '')).join('');
+            unlockedPredictionsContainer.innerHTML = predictionsHtml;
         } else {
             safeToggleClass('unlocked-predictions-section', 'hidden', true);
         }
@@ -684,7 +661,6 @@ export function renderFixtureUI() {
         }
     });
 }
-
 // --- SCORECARD AND LEDGER LOGIC ---
 
 function calculateScores(predictions) {
