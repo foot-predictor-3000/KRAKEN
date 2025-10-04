@@ -288,22 +288,54 @@ export async function getQuartermasterReport(homeTeam, awayTeam, apiKey) {
 **Task:** Provide a single, cohesive **Tactical Briefing** for the upcoming football match: ${homeTeam} vs ${awayTeam}.
 
 **CRITICAL INSTRUCTIONS:**
-1. Use your knowledge to gather the most current information (latest match results, team news, reliable injury reports, and likely tactical approaches) for both teams.
-2. Factual accuracy is paramount. All information must be up-to-date for the current 2025-2026 season.
-3. Write the tactical briefing based ONLY on verified, current information.
+1. You MUST use Google Search to find the MOST CURRENT information about both teams for the 2025-2026 season.
+2. Search for: current league position, recent match results (last 5 games), current form, confirmed injuries, suspensions, team news, and tactical approaches.
+3. Factual accuracy is paramount. Only include verified, current information from the searches.
 
 **ABSOLUTELY ESSENTIAL - OUTPUT STRUCTURE:**
 - Your entire response MUST be a single JSON object with ONE key: "tacticalBriefing".
 - The value of "tacticalBriefing" must be a single string.
-- Create 2-4 distinct sections within this string.
-- Each section MUST start with a short, bolded header (e.g., **Team Form**), followed by '::', followed by the paragraph content.
+- Create 3-4 distinct sections within this string.
+- Each section MUST start with a short, bolded header (e.g., **Current Form**), followed by '::', followed by the paragraph content.
 - Each section (header and content) MUST be separated by '\\n'.
 
 **REQUIRED FORMAT EXAMPLE:**
-"**Recent Form**::Arsenal comes into this match on a five-game winning streak, while their opponent has struggled on the road.\\n**Injury Report**::Arsenal's main striker is a doubt with a minor knock, but their key midfielder is expected to return."`;
+"**Current League Position**::${homeTeam} sits in 5th place with 28 points from 15 games, while ${awayTeam} is in 12th with 18 points.\\n**Recent Form**::${homeTeam} has won 3 of their last 5 matches, while ${awayTeam} has struggled with just 1 win."`;
 
     try {
-        const responseText = await callGemini(prompt, apiKey);
+        // Enable grounding for current data
+        const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+        
+        const requestBody = {
+            contents: [{
+                parts: [{ text: prompt }]
+            }],
+            tools: [{
+                google_search_retrieval: {
+                    dynamic_retrieval_config: {
+                        mode: "MODE_DYNAMIC",
+                        dynamic_threshold: 0.3
+                    }
+                }
+            }],
+            generationConfig: {
+                maxOutputTokens: 8192,
+                temperature: 0.7
+            }
+        };
+
+        const response = await fetch(`${endpoint}?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+            throw new Error(`API call failed: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const responseText = data.candidates[0].content.parts[0].text;
         console.log('Quartermaster Raw Response:', responseText);
 
         const cleanedResponse = responseText.replace(/```json|```/g, '').trim();
