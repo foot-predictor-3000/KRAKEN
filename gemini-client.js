@@ -120,20 +120,62 @@ export async function findFixtures(leagueName, apiKey, testMode = false) {
         endDate = sevenDaysFromNow.toISOString().split('T')[0];
     }
 
-    const prompt = `You are a football fixture data expert. Today's date is ${new Date().toISOString().split('T')[0]}.
-    Your task is to find all league matches for '${searchLeagueName}'.
-    - ${testMode ? `Find all matches that happened between ${startDate} and ${endDate}.` : `Find all matches scheduled from today (${startDate}) up to and including ${endDate}.`}
+    const prompt = `
+    You are a highly accurate football fixture data expert. Your primary goal is factual correctness.
+    Today's date is ${new Date().toISOString().split('T')[0]}.
+
+    **TASK:**
+    Find all official league matches for '${searchLeagueName}'.
+    - ${testMode ? `Find matches that happened between ${startDate} and ${endDate}.` : `Find matches scheduled from today (${startDate}) up to and including ${endDate}.`}
+
+    **CRITICAL ACCURACY RULES:**
+    1.  **DO NOT INVENT FIXTURES.** Your knowledge should be based on official schedules.
+    2.  **HANDLE INTERNATIONAL BREAKS:** If there are no league matches in the specified date range because of events like an international break, it is ESSENTIAL that you return an empty array.
+    3.  **VERIFY DATES:** Ensure every match returned falls strictly within the ${startDate} to ${endDate} window.
+
+    **CRITICAL OUTPUT FORMAT:**
     - Your entire response MUST be ONLY a single, valid JSON array of objects.
     - Each object MUST have these exact three keys: "HomeTeam", "AwayTeam", and "MatchDate".
     - "MatchDate" MUST be in "YYYY-MM-DD" format.
     - If no fixtures are found, you MUST return an empty JSON array: [].
-    Example of a valid response:
+
+    **Example of a valid response if matches are found:**
     [
       { "HomeTeam": "Arsenal", "AwayTeam": "Chelsea", "MatchDate": "${startDate}" }
-    ]`;
+    ]
+
+    **Example of a valid response if NO matches are found:**
+    []
+    `;
 
     try {
-        const responseJsonString = await callGemini(prompt, apiKey);
+        // NOTE: We are calling the new robust callGemini function from our previous fix.
+        // We will also use the model name you discovered works best.
+        const model = 'gemini-1.5-flash-latest'; // Using the model you confirmed works.
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+        
+        const requestBody = {
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+                responseMimeType: "application/json",
+                temperature: 0.0, // Set temperature to 0.0 for maximum factuality
+                maxOutputTokens: 8192,
+            }
+        };
+
+        const response = await fetch(`${endpoint}?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`API call failed: ${errorData.error?.message || response.statusText}`);
+        }
+
+        const data = await response.json();
+        const responseJsonString = data.candidates[0].content.parts[0].text;
         const rawFixtures = JSON.parse(responseJsonString);
 
         if (!Array.isArray(rawFixtures)) {
