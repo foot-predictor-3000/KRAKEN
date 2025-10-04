@@ -369,28 +369,6 @@ async function findFixturesWithGemini(leagueName, leagueCode, testMode = false) 
     }
 }
 
-// --- Fixture ID Generation (matching backend) ---
-function standardizeTeamName(teamName) {
-    if (!teamName) return "";
-    
-    const aliases = {
-        "Wolverhampton Wanderers": "Wolves",
-        "Man Utd": "Man United",
-        "Manchester United": "Man United",
-        "Tottenham Hotspur": "Tottenham",
-        "West Bromwich Albion": "West Brom",
-        "Nott'm Forest": "Nottingham Forest",
-        "Nottingham Forest": "Nottingham Forest",
-        "Sheffield Wednesday": "Sheff Wed",
-        "Queens Park Rangers": "QPR",
-        "Brighton & Hove Albion": "Brighton",
-    };
-
-    if (aliases[teamName]) return aliases[teamName];
-    const standardValues = new Set(Object.values(aliases));
-    if (standardValues.has(teamName)) return teamName;
-    return teamName;
-}
 
 const getCanonicalFixtureId = (fixture) => {
     if (!fixture || !fixture.HomeTeam || !fixture.AwayTeam || !fixture.MatchDate) {
