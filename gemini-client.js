@@ -47,7 +47,7 @@ async function callGemini(promptText, apiKey) {
     if (!apiKey) {
         throw new Error('API key is required. Please set your Gemini API key in settings.');
     }
-    const GEMINI_API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
+    const GEMINI_API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
 
     const requestBody = {
         contents: [{
