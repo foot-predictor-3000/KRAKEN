@@ -180,14 +180,14 @@ export function getPredictionsNeedingResults() {
     return new Promise((resolve, reject) => {
         const transaction = db.transaction([PREDICTIONS_STORE_NAME], 'readonly');
         const store = transaction.objectStore(PREDICTIONS_STORE_NAME);
-        const index = store.index('hasResult');
-        const request = index.getAll(false);
+        const request = store.getAll();
         
         request.onsuccess = () => {
             const today = new Date().toISOString().split('T')[0];
-            // Filter to only past matches
             const pastMatches = request.result.filter(p => 
-                p.fixture && p.fixture.MatchDate < today
+                p.fixture && 
+                p.fixture.MatchDate < today && 
+                !p.hasResult
             );
             resolve(pastMatches);
         };
