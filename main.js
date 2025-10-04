@@ -1355,21 +1355,22 @@ document.addEventListener('click', async (event) => {
         await loadPredictions();
     }
         } else if (quartermasterButton) {
-            const { hometeam, awayteam, index, predictionId } = quartermasterButton.dataset;
-            await getQuartermasterReportLocal(hometeam, awayteam, index, predictionId);
+    const { hometeam, awayteam, index, predictionId } = quartermasterButton.dataset;
+    await getQuartermasterReportLocal(hometeam, awayteam, index, parseInt(predictionId, 10));
         } else if (captainButton) {
-            const { hometeam, awayteam, index, predictionId } = captainButton.dataset;
-            const currentPrediction = unlockedPredictions.find(p => p.id == predictionId);
-            if (currentPrediction) await getCaptainReviewLocal(hometeam, awayteam, index, predictionId, currentPrediction);
+    const { hometeam, awayteam, index, predictionId } = captainButton.dataset;
+    const numericPredictionId = parseInt(predictionId, 10);
+    const currentPrediction = unlockedPredictions.find(p => p.id == numericPredictionId);
+    if (currentPrediction) await getCaptainReviewLocal(hometeam, awayteam, index, numericPredictionId, currentPrediction);
         } else if (saveGuessButton) {
-            const { predictionId, index, prefix = '' } = saveGuessButton.dataset;
-            const homeScore = safeGetElement(`${prefix}home-guess-${index}`)?.value;
-            const awayScore = safeGetElement(`${prefix}away-guess-${index}`)?.value;
-            if (!homeScore || !awayScore || homeScore < 0 || awayScore < 0) {
-                alert('Please enter valid scores for both teams!');
-            } else {
-                await saveUserGuess(predictionId, homeScore, awayScore);
-            }
+    const { predictionId, index, prefix = '' } = saveGuessButton.dataset;
+    const homeScore = safeGetElement(`${prefix}home-guess-${index}`)?.value;
+    const awayScore = safeGetElement(`${prefix}away-guess-${index}`)?.value;
+    if (!homeScore || !awayScore || homeScore < 0 || awayScore < 0) {
+        alert('Please enter valid scores for both teams!');
+    } else {
+        await saveUserGuess(parseInt(predictionId, 10), homeScore, awayScore);
+    }
         } else if (viewButton) {
             const { predictionId } = viewButton.dataset;
             if (predictionId) showAnalysisModal(predictionId);
