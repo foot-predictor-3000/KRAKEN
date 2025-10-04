@@ -120,44 +120,67 @@ export async function findFixtures(leagueName, apiKey, testMode = false) {
         startDate = sevenDaysAgo.toISOString().split('T')[0];
         endDate = today.toISOString().split('T')[0];
     } else {
+        startDate = today.toISOString().split('T')[0];
         const sevenDaysFromNow = new Date();
         sevenDaysFromNow.setDate(today.getDate() + 7);
-        startDate = today.toISOString().split('T')[0];
         endDate = sevenDaysFromNow.toISOString().split('T')[0];
     }
 
-    const prompt = `
-You are a sports data expert specializing in finding football match schedules.
-Your task is to find all upcoming league matches for '${searchLeagueName}'.
+    const modeText = testMode 
+        ? `PAST matches that were played between ${startDate} and ${endDate}` 
+        : `UPCOMING matches scheduled between ${startDate} and ${endDate}`;
 
-**CRITICAL DATE RULES:**
-- Today is ${today.toISOString().split('T')[0]}.
-- ${testMode ? `TEST MODE: Find all matches that happened between ${startDate} and ${endDate}.` : `Find all matches scheduled from today (${startDate}) up to and including ${endDate}.`}
-- Do not include matches that have already started today unless in test mode.
+    const prompt = `You are a football fixture data expert. Today's date is ${today.toISOString().split('T')[0]}.
 
-**SEARCH INSTRUCTIONS:**
-- To find the fixtures, use your knowledge of recent football schedules for: "${searchLeagueName} fixtures this week".
-- Check reliable sources like BBC Sport, Sky Sports, or the official league website.
+TASK: Find ${modeText} for ${searchLeagueName}.
 
-**CRITICAL OUTPUT FORMAT:**
-- You MUST return ONLY a single, valid JSON array of objects.
-- Do NOT include any explanatory text, markdown, or anything else outside of the JSON array.
-- Each object in the array MUST have these exact three keys: "HomeTeam", "AwayTeam", and "MatchDate".
-- The "MatchDate" MUST be in "YYYY-MM-DD" format.
-- If your search finds no fixtures, you MUST return an empty JSON array: [].
+${testMode ? 'IMPORTANT: These should be COMPLETED matches from the past week.' : 'IMPORTANT: These should be FUTURE matches not yet played.'}
 
-**Example of a valid response:**
+Search for: "${searchLeagueName} fixtures ${testMode ? 'results last week' : 'this week next week'}"
+
+CRITICAL OUTPUT RULES:
+1. Return ONLY a valid JSON array - no other text
+2. Each match needs exactly: "HomeTeam", "AwayTeam", "MatchDate" (YYYY-MM-DD format)
+3. MatchDate MUST be between ${startDate} and ${endDate} (inclusive)
+4. If no fixtures found, return: []
+
+Valid example:
 [
   {
     "HomeTeam": "Arsenal",
     "AwayTeam": "Chelsea",
     "MatchDate": "${startDate}"
   }
-]
-`;
+]`;
 
     try {
-        const responseText = await callGemini(prompt, apiKey); 
+        const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
+        
+        const requestBody = {
+            contents: [{
+                parts: [{ text: prompt }]
+            }],
+            tools: [{
+                googleSearch: {}
+            }],
+            generationConfig: {
+                temperature: 0.3,
+                maxOutputTokens: 8192
+            }
+        };
+
+        const response = await fetch(`${endpoint}?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+            throw new Error(`API call failed: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const responseText = data.candidates[0].content.parts[0].text;
         console.log('Raw Gemini Response:', responseText);
 
         let cleanedResponse = responseText.replace(/```json|```/g, '').trim();
@@ -191,11 +214,6 @@ Your task is to find all upcoming league matches for '${searchLeagueName}'.
                 const matchDate = new Date(fixture.MatchDate);
                 if (matchDate > validEndDate) {
                     console.warn(`Fixture beyond window:`, fixture);
-                    return null;
-                }
-
-                if (fixture.HomeTeam === 'Not specified' || fixture.AwayTeam === 'Not specified') {
-                    console.warn('Invalid team name:', fixture);
                     return null;
                 }
 
