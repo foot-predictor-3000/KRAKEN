@@ -1,6 +1,6 @@
 // gemini-client.js (Full Corrected Version)
 
-const GEMINI_API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+const GEMINI_API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
 /**
  * Standardizes team names to match historical data format
@@ -47,7 +47,7 @@ async function callGemini(promptText, apiKey) {
     if (!apiKey) {
         throw new Error('API key is required. Please set your Gemini API key in settings.');
     }
-    const GEMINI_API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+    const GEMINI_API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
     const requestBody = {
         contents: [{
