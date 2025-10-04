@@ -202,10 +202,12 @@ export function getCompletedPredictions() {
     return new Promise((resolve, reject) => {
         const transaction = db.transaction([PREDICTIONS_STORE_NAME], 'readonly');
         const store = transaction.objectStore(PREDICTIONS_STORE_NAME);
-        const index = store.index('hasResult');
-        const request = index.getAll(true);
+        const request = store.getAll();
         
-        request.onsuccess = () => resolve(request.result);
+        request.onsuccess = () => {
+            const completed = request.result.filter(p => p.hasResult === true);
+            resolve(completed);
+        };
         request.onerror = (event) => reject(event.target.error);
     });
 }
