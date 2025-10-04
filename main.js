@@ -50,29 +50,6 @@ function standardizeTeamName(teamName) {
     return teamName;
 }
 
-function getSeasonCodeForDate(date) {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const seasonEndYear = (month >= 7) ? year + 1 : year;
-    const seasonStartYear = seasonEndYear - 1;
-    return `${seasonStartYear.toString().slice(-2)}${seasonEndYear.toString().slice(-2)}`;
-}
-
-function parseFootballDataDate(dateStr) {
-    if (!dateStr) return null;
-    try {
-        const parts = dateStr.split('/');
-        if (parts.length !== 3) return null;
-        let [day, month, year] = parts;
-        if (year.length === 2) {
-            year = parseInt(year, 10) < 50 ? `20${year}` : `19${year}`;
-        }
-        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-    } catch (error) {
-        console.error("Error parsing date:", dateStr, error);
-        return null;
-    }
-}
 
 // --- Global State Management ---
 export let allFoundFixtures = [];
