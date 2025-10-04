@@ -1343,12 +1343,16 @@ document.addEventListener('click', async (event) => {
             const { index, predictionId } = predictButton.dataset;
             const currentPrediction = unlockedPredictions.find(p => p.id == predictionId);
             if (!currentPrediction) {
-                console.error("Could not find prediction to run forecast.");
-                return;
-            }
-            const settings = await getAllSettings();
-            const customSettings = settings.krakenHelmSettings || null;
-            await runPrediction(currentPrediction.fixture, index, predictionId, customSettings);
+        console.error("Could not find prediction to run forecast.");
+        return;
+        }
+    const settings = await getAllSettings();
+    const customSettings = settings.krakenHelmSettings || null;
+    const krakenData = await runPrediction(currentPrediction.fixture, index, predictionId, customSettings);
+    if (krakenData) {
+        await updatePrediction(predictionId, { krakenAnalysis: krakenData });
+        await loadPredictions();
+    }
         } else if (quartermasterButton) {
             const { hometeam, awayteam, index, predictionId } = quartermasterButton.dataset;
             await getQuartermasterReportLocal(hometeam, awayteam, index, predictionId);
