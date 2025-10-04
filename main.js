@@ -31,6 +31,49 @@ import {
 import { initWorker, trainModels, runPrediction, cleanupWorker } from './worker-handler.js';
 import { setStatus, initializeToggleListeners, showAnalysisModal, renderFixtureUI, renderLedger } from './ui.js';
 
+// main.js -> ADD THIS BLOCK
+// --- Fixture ID & Data Helpers (Transplanted from original for consistency) ---
+function standardizeTeamName(teamName) {
+    if (!teamName) return "";
+    const aliases = {
+        "Wolverhampton Wanderers": "Wolves", "Man Utd": "Man United", "Manchester United": "Man United",
+        "Tottenham Hotspur": "Tottenham", "West Bromwich Albion": "West Brom", "Nott'm Forest": "Nottingham Forest",
+        "Sheffield Wednesday": "Sheff Wed", "Queens Park Rangers": "QPR", "Brighton & Hove Albion": "Brighton",
+        "Norwich City": "Norwich", "Coventry City": "Coventry", "Bayern Munich": "Bayern Munich",
+        "Ein Frankfurt": "Eintracht Frankfurt", "FC Union Berlin": "Union Berlin", "Hamburger SV": "Hamburg",
+        "SC Freiburg": "Freiburg", "TSG Hoffenheim": "Hoffenheim", "FC Koln": "FC Cologne", "Ath Madrid": "Atletico Madrid",
+        "Ath Bilbao": "Athletic Bilbao", "Real Sociedad": "Sociedad", "Inter": "Inter Milan",
+    };
+    if (aliases[teamName]) return aliases[teamName];
+    const standardValues = new Set(Object.values(aliases));
+    if (standardValues.has(teamName)) return teamName;
+    return teamName;
+}
+
+function getSeasonCodeForDate(date) {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const seasonEndYear = (month >= 7) ? year + 1 : year;
+    const seasonStartYear = seasonEndYear - 1;
+    return `${seasonStartYear.toString().slice(-2)}${seasonEndYear.toString().slice(-2)}`;
+}
+
+function parseFootballDataDate(dateStr) {
+    if (!dateStr) return null;
+    try {
+        const parts = dateStr.split('/');
+        if (parts.length !== 3) return null;
+        let [day, month, year] = parts;
+        if (year.length === 2) {
+            year = parseInt(year, 10) < 50 ? `20${year}` : `19${year}`;
+        }
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    } catch (error) {
+        console.error("Error parsing date:", dateStr, error);
+        return null;
+    }
+}
+
 // --- Global State Management ---
 export let allFoundFixtures = [];
 export let unlockedPredictions = [];
@@ -414,55 +457,38 @@ async function saveUserGuess(predictionId, homeScore, awayScore) {
     }
 }
 
-// --- Quartermaster and Captain Functions ---
+// main.js -> REPLACE THIS FUNCTION
 async function getQuartermasterReportLocal(homeTeam, awayTeam, index, predictionId) {
     const apiKey = await getApiKey();
-    if (!apiKey) {
-        alert('Please set your Gemini API key in Settings first!');
-        return;
-    }
+    if (!apiKey) return alert('Please set your Gemini API key in Settings first!');
 
+    const reportSection = safeGetElement(`quartermaster-report-section-${index}`);
     try {
-        const reportSection = safeGetElement(`quartermaster-report-section-${index}`);
-        if (reportSection) {
-            reportSection.innerHTML = `<div class="flex items-center text-sm text-gray-500"><dotlottie-wc src="https://lottie.host/19109b73-f99a-4a89-a48c-d5b90bf22b22/tlVX1kmiPt.lottie" background="transparent" speed="1" style="width: 40px; height: 40px;" loop autoplay></dotlottie-wc><p class="ml-2">The Quartermaster is gathering intel...</p></div>`;
-        }
-        
-        // This now returns an object like { tacticalBriefing: "...", odds: {...} }
-        const report = await getQuartermasterReport(homeTeam, awayTeam, apiKey);
-        console.log("Quartermaster Data Received:", report);
+        if (reportSection) reportSection.innerHTML = `<div class="flex items-center text-sm text-gray-500"><dotlottie-wc src="https://lottie.host/19109b73-f99a-4a89-a48c-d5b90bf22b22/tlVX1kmiPt.lottie" background="transparent" speed="1" style="width: 40px; height: 40px;" loop autoplay></dotlottie-wc><p class="ml-2">The Quartermaster is analyzing the stats...</p></div>`;
 
-        // Prepare the data to be saved
-        const updates = {
-            quartermasterReport: {
-                tacticalBriefing: report.tacticalBriefing // Save just the text part here
-            }
+        const currentPrediction = unlockedPredictions.find(p => p.id == predictionId);
+        if (!currentPrediction || !currentPrediction.krakenAnalysis) {
+            throw new Error("The Kraken must be consulted before the Quartermaster can report!");
+        }
+
+        const { reasoningStats } = currentPrediction.krakenAnalysis;
+        const { minEloRating, maxEloRating } = await getSetting('eloRange') || {};
+
+        const statsForPrompt = {
+            ...reasoningStats,
+            homeEloGrade: eloToGrade(reasoningStats.homeElo, minEloRating, maxEloRating),
+            awayEloGrade: eloToGrade(reasoningStats.awayElo, minEloRating, maxEloRating),
         };
 
-        // If we got odds, update the main fixture object as well
-        if (report.odds) {
-            const currentPrediction = unlockedPredictions.find(p => p.id == predictionId);
-            if (currentPrediction) {
-                updates.fixture = {
-                    ...currentPrediction.fixture,
-                    HomeWinOdds: report.odds.homeWin || 'N/A',
-                    DrawOdds: report.odds.draw || 'N/A',
-                    AwayWinOdds: report.odds.awayWin || 'N/A'
-                };
-            }
-        }
-        
-        await updatePrediction(predictionId, updates);
-        await loadPredictions(); // This will refresh the UI with the new odds
-    } catch(error) { 
-        console.error("Quartermaster Error:", error); 
-        const reportSection = safeGetElement(`quartermaster-report-section-${index}`);
-        if (reportSection) {
-            reportSection.innerHTML = `<p class="text-red-500">Oh dear! ${error.message}</p>`;
-        }
+        const report = await getQuartermasterReport(homeTeam, awayTeam, statsForPrompt, apiKey);
+
+        await updatePrediction(predictionId, { quartermasterReport: report });
+        await loadPredictions();
+    } catch(error) {
+        console.error("Quartermaster Error:", error);
+        if (reportSection) reportSection.innerHTML = `<p class="text-red-500">Oh dear! ${error.message}</p>`;
     }
 }
-
 async function getCaptainReviewLocal(homeTeam, awayTeam, index, predictionId, currentPrediction) {
     const apiKey = await getApiKey();
     if (!apiKey) {
@@ -516,58 +542,52 @@ async function getCaptainReviewLocal(homeTeam, awayTeam, index, predictionId, cu
     }
 }
 
-// --- Manual Result Fetching ---
+// main.js -> REPLACE THIS FUNCTION
 async function fetchMatchResults() {
     const btn = safeGetElement('fetch-results-btn');
     const status = safeGetElement('fetch-results-status');
-    
+
     if (btn) btn.disabled = true;
     if (status) status.innerHTML = '<div class="flex items-center text-sm"><dotlottie-wc src="https://lottie.host/19109b73-f99a-4a89-a48c-d5b90bf22b22/tlVX1kmiPt.lottie" background="transparent" speed="1" style="width: 30px; height: 30px;" loop autoplay></dotlottie-wc><p class="ml-2">Fetching results from the archives...</p></div>';
-    
+
     try {
-        const predictionsNeedingResults = await getPredictionsNeedingResults();
-        
-        if (predictionsNeedingResults.length === 0) {
-            if (status) status.innerHTML = '<p class="text-gray-600">No past matches need results.</p>';
+        const predictionsToUpdate = await getPredictionsNeedingResults();
+        if (predictionsToUpdate.length === 0) {
+            if (status) status.innerHTML = '<p class="text-gray-600">No past-dated predictions require a result update.</p>';
             if (btn) btn.disabled = false;
             return;
         }
 
-        console.log(`Found ${predictionsNeedingResults.length} predictions needing results`);
-
-        // Group by season and league
         const predictionsBySeason = {};
-        predictionsNeedingResults.forEach(p => {
-            if (!p.fixture || !p.fixture.MatchDate || !p.fixture.leagueCode) {
-                console.warn('Skipping prediction with missing data:', p);
+        predictionsToUpdate.forEach(p => {
+            if (!p.fixture?.MatchDate || !p.fixture?.leagueCode) {
+                console.warn(`Skipping prediction due to missing data:`, p);
                 return;
             }
-
             const matchDate = new Date(p.fixture.MatchDate);
             const season = getSeasonCodeForDate(matchDate);
             const leagueCode = p.fixture.leagueCode;
             const seasonKey = `${season}-${leagueCode}`;
-
-            if (!predictionsBySeason[seasonKey]) {
-                predictionsBySeason[seasonKey] = [];
-            }
+            if (!predictionsBySeason[seasonKey]) predictionsBySeason[seasonKey] = [];
             predictionsBySeason[seasonKey].push(p);
         });
 
         let totalUpdated = 0;
+        const proxy = 'https://corsproxy.io/?';
 
         for (const seasonKey in predictionsBySeason) {
             const [season, leagueCode] = seasonKey.split('-');
-            const url = `https://corsproxy.io/?${encodeURIComponent(`https://www.football-data.co.uk/mmz4281/${season}/${leagueCode}.csv`)}`;
+            const url = `${proxy}${encodeURIComponent(`https://www.football-data.co.uk/mmz4281/${season}/${leagueCode}.csv`)}`;
 
             try {
                 console.log(`Fetching results from ${url}`);
-                const response = await fetch(url, { timeout: 15000 });
+                const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const csvText = await response.text();
-                const results = parseCSV(csvText);
-
+                
+                const resultsData = Papa.parse(csvText, { header: true, skipEmptyLines: true }).data;
                 const resultsMap = new Map();
-                results.forEach(result => {
+                resultsData.forEach(result => {
                     const resultDate = parseFootballDataDate(result.Date);
                     const homeTeam = standardizeTeamName(result.HomeTeam);
                     const awayTeam = standardizeTeamName(result.AwayTeam);
@@ -583,34 +603,29 @@ async function fetchMatchResults() {
                     const result = resultsMap.get(lookupKey);
 
                     if (result && result.FTHG && result.FTAG && result.FTR) {
-                        console.log(`✅ MATCH FOUND for ${lookupKey}: ${result.FTHG}-${result.FTAG}`);
                         const resultData = {
                             homeScore: parseInt(result.FTHG, 10),
                             awayScore: parseInt(result.FTAG, 10),
                             finalOutcome: result.FTR
                         };
-
                         if (!isNaN(resultData.homeScore) && !isNaN(resultData.awayScore)) {
                             await updatePrediction(prediction.id, { result: resultData });
                             totalUpdated++;
+                            console.log(`✅ MATCH FOUND for ${lookupKey}: ${result.FTHG}-${result.FTAG}`);
                         }
+                    } else {
+                         console.log(`❌ NO MATCH FOUND for ${lookupKey} in the fetched CSV.`);
                     }
                 }
             } catch (error) {
-                console.error(`Failed to fetch results for season ${season}:`, error);
+                console.error(`Failed to fetch or process results for ${seasonKey}:`, error);
             }
         }
-
-        if (status) {
-            status.innerHTML = `<p class="text-green-600">Updated ${totalUpdated} match result(s)!</p>`;
-        }
-        
+        if (status) status.innerHTML = `<p class="text-green-600">Success! Updated ${totalUpdated} of ${predictionsToUpdate.length} pending matches.</p>`;
         await loadPredictions();
     } catch (error) {
-        console.error('Error fetching results:', error);
-        if (status) {
-            status.innerHTML = `<p class="text-red-500">Failed to fetch results: ${error.message}</p>`;
-        }
+        console.error('Error in fetchMatchResults:', error);
+        if (status) status.innerHTML = `<p class="text-red-500">Failed to fetch results: ${error.message}</p>`;
     } finally {
         if (btn) btn.disabled = false;
     }
@@ -1396,3 +1411,9 @@ function cleanup() {
 
 window.addEventListener('pagehide', cleanup);
 window.addEventListener('beforeunload', cleanup);
+
+// main.js -> ADD THIS TO THE BOTTOM
+// Add PapaParse script to index.html for reliable CSV parsing
+const papaScript = document.createElement('script');
+papaScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js';
+document.head.appendChild(papaScript);
