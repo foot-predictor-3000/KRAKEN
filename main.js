@@ -2,7 +2,6 @@
 
 import {
     findFixtures,
-    getOddsForFixtures,
     getQuartermasterReport,
     getCaptainReview
 } from './gemini-client.js';
