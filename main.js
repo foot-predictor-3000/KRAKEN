@@ -1340,17 +1340,18 @@ document.addEventListener('click', async (event) => {
                 if (fixtureToUnlock) await unlockFixture(fixtureToUnlock);
             }
         } else if (predictButton) {
-            const { index, predictionId } = predictButton.dataset;
-            const currentPrediction = unlockedPredictions.find(p => p.id == predictionId);
-            if (!currentPrediction) {
+    const { index, predictionId } = predictButton.dataset;
+    const numericPredictionId = parseInt(predictionId, 10);
+    const currentPrediction = unlockedPredictions.find(p => p.id == numericPredictionId);
+    if (!currentPrediction) {
         console.error("Could not find prediction to run forecast.");
         return;
-        }
+    }
     const settings = await getAllSettings();
     const customSettings = settings.krakenHelmSettings || null;
-    const krakenData = await runPrediction(currentPrediction.fixture, index, predictionId, customSettings);
+    const krakenData = await runPrediction(currentPrediction.fixture, index, numericPredictionId, customSettings);
     if (krakenData) {
-        await updatePrediction(predictionId, { krakenAnalysis: krakenData });
+        await updatePrediction(numericPredictionId, { krakenAnalysis: krakenData });
         await loadPredictions();
     }
         } else if (quartermasterButton) {
