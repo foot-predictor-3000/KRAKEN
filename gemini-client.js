@@ -283,44 +283,42 @@ ${fixtureListString}
  * Gets Quartermaster's tactical briefing
  */
 export async function getQuartermasterReport(homeTeam, awayTeam, apiKey) {
-    const prompt = `**Persona:** You are a ship's Quartermaster, a meticulous and fact-focused intelligence officer. Your primary directive is factual accuracy.
+    const prompt = `**Persona:** You are a ship's Quartermaster, a meticulous and fact-focused intelligence officer.
 
-**Task:** Provide a single, cohesive **Tactical Briefing** for the upcoming football match: ${homeTeam} vs ${awayTeam}.
+**Task:** Search for and report the MOST CURRENT information for: ${homeTeam} vs ${awayTeam}.
+
+**WHAT TO SEARCH FOR:**
+1. Current league position and points for both teams
+2. Recent results (last 5 matches) for both teams
+3. Current injuries and suspensions
+4. Recent team news and any tactical changes
+5. Head-to-head recent history
 
 **CRITICAL INSTRUCTIONS:**
-1. You MUST use Google Search to find the MOST CURRENT information about both teams for the 2025-2026 season.
-2. Search for: current league position, recent match results (last 5 games), current form, confirmed injuries, suspensions, team news, and tactical approaches.
-3. Factual accuracy is paramount. Only include verified, current information from the searches.
+- Be specific and factual. Use real, verified data only.
+- Today's date for reference: ${new Date().toISOString().split('T')[0]}
+- Focus on the current 2025-2026 season data.
 
-**ABSOLUTELY ESSENTIAL - OUTPUT STRUCTURE:**
-- Your entire response MUST be a single JSON object with ONE key: "tacticalBriefing".
-- The value of "tacticalBriefing" must be a single string.
-- Create 3-4 distinct sections within this string.
-- Each section MUST start with a short, bolded header (e.g., **Current Form**), followed by '::', followed by the paragraph content.
-- Each section (header and content) MUST be separated by '\\n'.
+**OUTPUT STRUCTURE:**
+Your entire response MUST be a single JSON object with ONE key: "tacticalBriefing".
+The value must be a single string with 3-4 sections.
+Each section format: **Header**::Content\\n
 
-**REQUIRED FORMAT EXAMPLE:**
-"**Current League Position**::${homeTeam} sits in 5th place with 28 points from 15 games, while ${awayTeam} is in 12th with 18 points.\\n**Recent Form**::${homeTeam} has won 3 of their last 5 matches, while ${awayTeam} has struggled with just 1 win."`;
+Example: "**Current Form**::${homeTeam} has won 3 of last 5, sitting 5th in the table.\\n**Injuries**::Key midfielder out for 2 weeks."`;
 
     try {
-        // Enable grounding for current data
-        const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+        const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
         
         const requestBody = {
             contents: [{
                 parts: [{ text: prompt }]
             }],
             tools: [{
-                google_search_retrieval: {
-                    dynamic_retrieval_config: {
-                        mode: "MODE_DYNAMIC",
-                        dynamic_threshold: 0.3
-                    }
-                }
+                googleSearch: {}
             }],
             generationConfig: {
-                maxOutputTokens: 8192,
-                temperature: 0.7
+                temperature: 0.7,
+                maxOutputTokens: 8192
             }
         };
 
@@ -331,10 +329,17 @@ export async function getQuartermasterReport(homeTeam, awayTeam, apiKey) {
         });
 
         if (!response.ok) {
-            throw new Error(`API call failed: ${response.statusText}`);
+            const errorData = await response.json();
+            console.error('Quartermaster API Error:', errorData);
+            throw new Error(`API call failed: ${errorData.error?.message || response.statusText}`);
         }
 
         const data = await response.json();
+        
+        if (!data.candidates || !data.candidates[0]) {
+            throw new Error('No response from API');
+        }
+        
         const responseText = data.candidates[0].content.parts[0].text;
         console.log('Quartermaster Raw Response:', responseText);
 
