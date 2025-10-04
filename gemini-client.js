@@ -151,7 +151,7 @@ export async function findFixtures(leagueName, apiKey, testMode = false) {
     try {
         // NOTE: We are calling the new robust callGemini function from our previous fix.
         // We will also use the model name you discovered works best.
-        const model = 'gemini-2.5-flash-latest'; // Using the model you confirmed works.
+        const model = 'gemini-2.5-flash'; // Using the model you confirmed works.
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
         
         const requestBody = {
