@@ -1372,8 +1372,8 @@ document.addEventListener('click', async (event) => {
         await saveUserGuess(parseInt(predictionId, 10), homeScore, awayScore);
     }
         } else if (viewButton) {
-            const { predictionId } = viewButton.dataset;
-            if (predictionId) showAnalysisModal(predictionId);
+    const { predictionId } = viewButton.dataset;
+    if (predictionId) showAnalysisModal(parseInt(predictionId, 10));
         }
     } catch (error) {
         console.error('Error in delegated event handler:', error);
